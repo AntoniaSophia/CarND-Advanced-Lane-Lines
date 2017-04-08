@@ -20,6 +20,9 @@ def onclick(event):
 nx = 9 # the number of inside corners in x
 ny = 6 # the number of inside corners in y
 
+leftLaneCenter = 300
+rightLaneCenter = 900
+
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
 objp = np.zeros((ny*nx,3), np.float32)
 objp[:,:2] = np.mgrid[0:nx, 0:ny].T.reshape(-1,2)
@@ -75,10 +78,10 @@ def calculateWarp(img, mtx, dist):
 
     # define the 4 desired coordinates (right top, right bottom, left bottom, left top) in the source image
     dst = np.float32(
-        [[900,0],
-         [900,718],
-         [300,718],
-         [300,0]])
+        [[rightLaneCenter,0],
+         [rightLaneCenter,718],
+         [leftLaneCenter,718],
+         [leftLaneCenter,0]])
 
     # Compute the perspective transform, M, given source and destination points
     M = cv2.getPerspectiveTransform(src, dst)
@@ -156,5 +159,7 @@ if  calcDistortion == True and calcWarp == True:
     dist_pickle["rvecs"] = rvecs
     dist_pickle["tvecs"] = tvecs
     dist_pickle["M"] = perspective_M
-
+    dist_pickle["rightLaneCenter"] = rightLaneCenter
+    dist_pickle["leftLaneCenter"] = leftLaneCenter
+ 
     pickle.dump( dist_pickle, open( "../camera_cal/camera_calibration_pickle.p", "wb" ) )
