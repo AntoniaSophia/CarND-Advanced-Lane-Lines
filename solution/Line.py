@@ -36,8 +36,8 @@ class Line():
         self.orientation = orientation
 
     def processLanePts(self, x_pts, y_pts,img_shape):
-        print('-------------------------------------')
-        print('Process pts on Line ' , self.orientation)
+        #print('-------------------------------------')
+        #print('Process pts on Line ' , self.orientation)
         #print('Processing number of x_pts points' , len(x_pts))
         #print('Processing number of y_pts points' , len(y_pts))
         # Fit a second order polynomial to each
@@ -76,11 +76,11 @@ class Line():
             self.detected = False
 
             # skip values!
-            print('Frame seems to be invalid!!!')
+            #print('Frame seems to be invalid!!!')
         else:   # valid points found!!
             self.detected = True
 
-            print('Frame seems to be valid!!!')
+            #print('Frame seems to be valid!!!')
             # step 1: remove first frame coeffs if more than threshold items available
             if (len(self.coeff_history) >= 5):
                 self.coeff_history.pop(0)
@@ -150,9 +150,15 @@ class EgoLane():
     def displayLane(self,img):
         overlay_img = np.zeros_like(img)
 
+        left_mean_coeff = np.mean(self.leftline.coeff_history, axis=0)
+        right_mean_coeff = np.mean(self.rightline.coeff_history, axis=0)
+        
         ploty = np.linspace(0, img.shape[0]-1, img.shape[0] )
-        left_fitx = self.leftline.current_fit[0]*ploty**2 + self.leftline.current_fit[1]*ploty + self.leftline.current_fit[2]
-        right_fitx = self.rightline.current_fit[0]*ploty**2 + self.rightline.current_fit[1]*ploty + self.rightline.current_fit[2]
+        #left_fitx = self.leftline.current_fit[0]*ploty**2 + self.leftline.current_fit[1]*ploty + self.leftline.current_fit[2]
+        #right_fitx = self.rightline.current_fit[0]*ploty**2 + self.rightline.current_fit[1]*ploty + self.rightline.current_fit[2]
+
+        left_fitx = left_mean_coeff[0]*ploty**2 + left_mean_coeff[1]*ploty + left_mean_coeff[2]
+        right_fitx = right_mean_coeff[0]*ploty**2 + right_mean_coeff[1]*ploty + right_mean_coeff[2]
 
         if self.leftline.detected == True:
             for x1,y1 in zip(left_fitx.astype(int),ploty.astype(int)):
@@ -170,7 +176,7 @@ class EgoLane():
         return overlay_img/255
 
     def processFrame(self, frame):
-        print("Processing egolane")
+        #print("Processing egolane")
         return self.pipeline(frame)
 
     def colorGradient(self, img, s_channel_thresh=(180, 255), sobel_x_thresh=(30, 120)):
