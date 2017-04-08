@@ -124,14 +124,39 @@ def rgb2gray(rgb):
 
     return gray
 
-def pipeline(img,warp_Matrix):
+def pipeline(img,warp_Matrix,warp_MatrixInverse):
     img_undistort = undistort(img)
+
     colorGrad = colorGradient(img_undistort,(170,220),(22,100))
     unwarped = warp(colorGrad,warp_Matrix)
-    grayImage = rgb2bw(unwarped)
-    return grayImage
+    maskedImage = maskAreaOfInterest(unwarped)
+
+    grayImage = rgb2bw(maskedImage)
+    # plt.imshow(grayImage)
+    # plt.title('window fitting results')
+    # plt.show()
+
+    coloredLaneImage = histoCurvatureFit(grayImage)
+    unwarped = warp(coloredLaneImage,warp_MatrixInverse)
+    return unwarped
 
 
+def maskAreaOfInterest(img,maskrange=150):
+
+    imgshape = img.shape
+    leftLaneArea = [leftLaneCenter-maskrange, leftLaneCenter+maskrange]
+    rightLaneArea = [rightLaneCenter-maskrange, rightLaneCenter+maskrange]
+
+    contours = np.array( [ [0,0], [leftLaneArea[0],0], [leftLaneArea[0],imgshape[0]], [0,imgshape[0]] ] )
+    cv2.fillPoly(img, pts =[contours], color=(0,0,0))
+
+    contours = np.array( [ [imgshape[1],0], [rightLaneArea[1],0], [rightLaneArea[1],imgshape[0]], [imgshape[1],imgshape[0]] ] )
+    cv2.fillPoly(img, pts =[contours], color=(0,0,0))
+
+    #cv2.fillPoly(img, [ [leftLaneArea[0],0] , [leftLaneArea[0],imgshape[1]] , [leftLaneArea[1],imgshape[1]] , [leftLaneArea[1],0]   ], (0,255, 0))
+    #cv2.fillPoly(img, [[rightLaneArea[0],0],[rightLaneArea[0],imgshape[1]],[rightLaneArea[1],imgshape[1]],[rightLaneArea[1],0]], (0,255, 0))
+
+    return img
 
 def window_mask(width, height, img_ref, center,level):
     output = np.zeros_like(img_ref)
@@ -326,17 +351,26 @@ def histoCurvatureFit(binary_warped):
     right_line_window2 = np.array([np.flipud(np.transpose(np.vstack([right_fitx+margin, ploty])))])
     right_line_pts = np.hstack((right_line_window1, right_line_window2))
 
-    # Draw the lane onto the warped blank image
-    cv2.fillPoly(window_img, np.int_([left_line_pts]), (0,255, 0))
-    cv2.fillPoly(window_img, np.int_([right_line_pts]), (0,255, 0))
-    result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
-    plt.imshow(result/255)
-    plt.plot(left_fitx, ploty, color='yellow')
-    plt.plot(right_fitx, ploty, color='yellow')
-    plt.xlim(0, 1280)
-    plt.ylim(720, 0)
+    # fill the lane with red
+    for x1,y1,x2,y2 in zip(left_fitx.astype(int),ploty.astype(int),right_fitx.astype(int),ploty.astype(int)):
+        cv2.line(window_img,(x1,y1),(x2,y2),(255,0, 0),2)
+        cv2.circle(window_img,(x1,y1),2,(255,255, 0),2)
+        cv2.circle(window_img,(x2,y2),2,(255,255, 0),2)
+    
+    # Draw the lane onto the warped blank image in green color
+    #cv2.fillPoly(window_img, np.int_([left_line_pts]), (0,255, 0))
+    #cv2.fillPoly(window_img, np.int_([right_line_pts]), (0,255, 0))
 
-    return out_img
+
+    #result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
+
+    # plt.imshow(result/255)
+    # plt.plot(left_fitx, ploty, color='yellow')
+    # plt.plot(right_fitx, ploty, color='yellow')
+    # plt.xlim(0, 1280)
+    # plt.ylim(720, 0)
+    # result = (result/255)
+    return window_img/255
 
 
 def nextFramehistoCurvatureFit(binary_warped):
@@ -396,30 +430,28 @@ dist_pickle = pickle.load( open( "../camera_cal/camera_calibration_pickle.p", "r
 mtx = dist_pickle["mtx"]
 dist = dist_pickle["dist"]
 M = dist_pickle["M"]
+Minv = dist_pickle["Minv"]
+rightLaneCenter = dist_pickle["rightLaneCenter"]
+leftLaneCenter = dist_pickle["leftLaneCenter"]
+
+
+
+
 img = cv2.imread('../test_images/test5.jpg')
-#img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
 
 
+img_pipelined = pipeline(img,M,Minv)
 
-img_pipelined = pipeline(img,M)
-#height = int(img_pipelined.shape[0]/2)
-#print(height)
-
-#histogram = np.sum(img_pipelined[height:,:], axis=0)
-#plt.plot(histogram)
-#plt.show()  
-#plt.gcf().clear()
-
-#slideWindowSearch(img_pipelined)
-histoCurvatureFit(img_pipelined)
+img_pipelined = np.uint8(255*img_pipelined/np.max(img_pipelined))
+result = cv2.addWeighted(img.astype(int), 1, img_pipelined.astype(int), 0.5, 0,dtype=cv2.CV_8U)
 
 
 f, (ax1, ax2) = plt.subplots(1, 2, figsize=(20,10))
 ax1.imshow(img)
 ax1.set_title('Original Image', fontsize=30)
-ax2.imshow(img_pipelined, cmap='gray')
+ax2.imshow(result)
 ax2.set_title('Pipelined Image', fontsize=30)
 plt.show()  
 
