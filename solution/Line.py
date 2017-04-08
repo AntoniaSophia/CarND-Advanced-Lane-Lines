@@ -26,16 +26,20 @@ class Line():
         #difference in fit coefficients between last and new fits
         self.diffs = np.array([0,0,0], dtype='float') 
         #x values for detected line pixels
-        self.allx = []  
+        self.allx = [] 
         #y values for detected line pixels
         self.ally = []
+
+        self.coeff_history = []
 
         # orientation can be left or right lane
         self.orientation = orientation
 
-    def processLanePts(self, x_pts, y_pts,img_shape, margin):
+    def processLanePts(self, x_pts, y_pts,img_shape):
         print('-------------------------------------')
         print('Process pts on Line ' , self.orientation)
+        #print('Processing number of x_pts points' , len(x_pts))
+        #print('Processing number of y_pts points' , len(y_pts))
         # Fit a second order polynomial to each
         lane_fit = np.polyfit(y_pts, x_pts, 2)
 
@@ -44,39 +48,24 @@ class Line():
         ploty = np.linspace(0, img_shape[0]-1, img_shape[0] )
         lane_fitx = lane_fit[0]*ploty**2 + lane_fit[1]*ploty + lane_fit[2]
 
-        print("Coeff a" ,lane_fit[0])
-        print("Coeff b" ,lane_fit[1])
-        print("Coeff c" ,lane_fit[2])        
+        #print("Coeff a" ,lane_fit[0])
+        #print("Coeff b" ,lane_fit[1])
+        #print("Coeff c" ,lane_fit[2])       
 
-        # Generate a polygon to illustrate the search window area
-        # And recast the x and y points into usable format for cv2.fillPoly()
-        lane_line_window1 = np.array([np.transpose(np.vstack([lane_fitx-margin, ploty]))])
-        lane_line_window2 = np.array([np.flipud(np.transpose(np.vstack([lane_fitx+margin, ploty])))])
-        lane_line_pts = np.hstack((lane_line_window1, lane_line_window2))
-
-        # insert into Line attributes
-        if True == True: # TODO: reasonable calculation
-            self.detected = True
+        if len(self.coeff_history)>0:
+            mean_coeff = np.mean(self.coeff_history, axis=0)
         else:
-            self.detected = False
+            #first run! 
+            self.coeff_history.append(lane_fit)
+            mean_coeff = np.mean(self.coeff_history, axis=0)
 
+        #print("Mean Coeff a" ,mean_coeff[0])
+        #print("Mean Coeff b" ,mean_coeff[1])
+        #print("Mean Coeff c" ,mean_coeff[2])
 
-        temp_allx = self.allx
-        temp_allx.append(x_pts)
-        temp_ally = self.ally
-        temp_ally.append(y_pts)
-
-        allxArray = np.array(temp_allx)
-        allyArray = np.array(temp_ally)
-        #print('Länge allx verdoppelt' , len(a.flatten()))
-        lane_fit_all = np.polyfit(allyArray.flatten(), allxArray.flatten(), 2)
-
-        relative_coeff_a_change = abs((lane_fit[0] - lane_fit_all[0])/lane_fit_all[0])
-        relative_coeff_b_change = abs((lane_fit[1] - lane_fit_all[1])/lane_fit_all[1])
-        relative_coeff_c_change = abs((lane_fit[2] - lane_fit_all[2])/lane_fit_all[2])
-        #print("Coeff a%" ,relative_coeff_a_change)
-        #print("Coeff b%" ,relative_coeff_b_change)
-        #print("Coeff c%" ,relative_coeff_b_change)  
+        relative_coeff_a_change = abs((lane_fit[0] - mean_coeff[0])/mean_coeff[0])
+        relative_coeff_b_change = abs((lane_fit[1] - mean_coeff[1])/mean_coeff[1])
+        relative_coeff_c_change = abs((lane_fit[2] - mean_coeff[2])/mean_coeff[2])
 
         if relative_coeff_a_change > 0.1 or relative_coeff_b_change > 0.1 or relative_coeff_c_change > 0.1:
             # Points seem to be invalid
@@ -85,22 +74,25 @@ class Line():
             # skip values!
             print('Frame seems to be invalid!!!')
         else:   # valid points found!!
-            # step 1: remove first frame points if more than threshold items available
-            if (len(self.allx) >= 5):
-                self.allx.pop(0)
-                self.ally.pop(0)
-            # step 2: append those points
-            self.allx.append(x_pts)
-            self.ally.append(y_pts)
-
-            # step 3: set detected flag
             self.detected = True
+
+            print('Frame seems to be valid!!!')
+            # step 1: remove first frame coeffs if more than threshold items available
+            if (len(self.coeff_history) >= 5):
+                self.coeff_history.pop(0)
+
+            # step 2: append newly found coeffs
+            self.coeff_history.append(lane_fit)
+
+            # step 3: append x/y points
+            self.allx = x_pts
+            self.ally = y_pts
 
             # step 4: set current fit polynomial coefficients
             self.current_fit = lane_fit
 
             # step 5: set current fit polynomial coefficients
-            self.diffs = [(lane_fit[0] - lane_fit_all[0]) , (lane_fit[1] - lane_fit_all[1]), (lane_fit[2] - lane_fit_all[2])]
+            self.diffs = [(lane_fit[0] - mean_coeff[0]) , (lane_fit[1] - mean_coeff[1]), (lane_fit[2] - mean_coeff[2])]
 
             # step 6: set the curvature radius
             # TODO
@@ -109,10 +101,6 @@ class Line():
             #step 7: distance in meters of vehicle center from the line
             # TODO
             #self.line_base_pos = None 
-
-
-
-
 
 
 
@@ -133,7 +121,7 @@ class EgoLane():
         self.rightline = RightLine()
 
     def pipeline(self, frame):
-        print("pipeline")
+        #print("pipeline")
 
         img = frame.currentImg
 
@@ -281,13 +269,13 @@ class EgoLane():
         leftx = nonzerox[left_lane_inds]
         lefty = nonzeroy[left_lane_inds] 
 
-        self.leftline.processLanePts(leftx, lefty, binary_warped.shape, margin)
+        self.leftline.processLanePts(leftx, lefty, binary_warped.shape)
 
 
         rightx = nonzerox[right_lane_inds]
         righty = nonzeroy[right_lane_inds] 
 
-        self.rightline.processLanePts(rightx, righty, binary_warped.shape, margin)
+        self.rightline.processLanePts(rightx, righty, binary_warped.shape)
 
 
         # # Create an image to draw on and an image to show the selection window
@@ -346,16 +334,14 @@ class Frame():
     def displayCurrentImage(self, overlay=True):
 
         if overlay == True and self.currentEgoLaneOverlay != None:
-            print(np.amax(self.currentImg))
+            print("Show Overlay")
             
             img_pipelined = np.uint8(255*self.currentEgoLaneOverlay/np.max(self.currentEgoLaneOverlay))
-            print(np.amax(img_pipelined))
-            print(self.currentImg.shape)
-            print(img_pipelined.shape)
             result = cv2.addWeighted(self.currentImg.astype(int), 1, img_pipelined.astype(int), 0.5, 0,dtype=cv2.CV_8U)
             
             plt.imshow(result)
         else:
+            print("No Overlay!")
             plt.imshow(self.currentImg)
 
         plt.title('Input Image')
@@ -438,8 +424,14 @@ class Camera():
 def testLine():
     testFrame = Frame()
     testFrame.initializeCamera()
-    testFrame.loadImageFromFile('../test_images/test5.jpg')
+
+    testFrame.loadImageFromFile('../test_images/test1.jpg')
     testFrame.processCurrentFrame()
     testFrame.displayCurrentImage()
+
+    testFrame.loadImageFromFile('../test_images/test2.jpg')
+    testFrame.processCurrentFrame()
+    testFrame.displayCurrentImage()
+
 
 testLine()
