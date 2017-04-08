@@ -67,7 +67,11 @@ class Line():
         relative_coeff_b_change = abs((lane_fit[1] - mean_coeff[1])/mean_coeff[1])
         relative_coeff_c_change = abs((lane_fit[2] - mean_coeff[2])/mean_coeff[2])
 
-        if relative_coeff_a_change > 0.1 or relative_coeff_b_change > 0.1 or relative_coeff_c_change > 0.1:
+        relative_coeff_a_change = 0
+        relative_coeff_b_change = 0
+        relative_coeff_c_change = 0
+
+        if relative_coeff_a_change > 1 or relative_coeff_b_change > 1 or relative_coeff_c_change > 1:
             # Points seem to be invalid
             self.detected = False
 
@@ -347,12 +351,37 @@ class Frame():
         plt.title('Input Image')
         plt.show()
 
+    def getOverlayImage(self):
+
+        if self.currentEgoLaneOverlay != None:
+            
+            img_pipelined = np.uint8(255*self.currentEgoLaneOverlay/np.max(self.currentEgoLaneOverlay))
+            result = cv2.addWeighted(self.currentImg.astype(int), 1, img_pipelined.astype(int), 0.5, 0,dtype=cv2.CV_8U)
+            
+            return result
+        else:
+            return self.currentImg
+
+
+
     def receiveFrame(self, img):
         self.currentImage = copy.copy(img)
+        #self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_RGB2BGR) 
 
     def initializeCamera(self, fileName='../camera_cal/camera_calibration_pickle.p'):
         self.camera = Camera(fileName)
 
+    def videoPipeline(self, img):
+        self.receiveFrame(img)
+        self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_RGB2BGR) 
+        self.processCurrentFrame()
+
+        if self.currentEgoLaneOverlay != None:
+            img_pipelined = np.uint8(255*self.currentEgoLaneOverlay/np.max(self.currentEgoLaneOverlay))
+            result = cv2.addWeighted(self.currentImg.astype(int), 1, img_pipelined.astype(int), 0.5, 0,dtype=cv2.CV_8U)   
+            return result     
+        else:
+            return img
 
 
 class Camera():
@@ -425,13 +454,40 @@ def testLine():
     testFrame = Frame()
     testFrame.initializeCamera()
 
-    testFrame.loadImageFromFile('../test_images/test1.jpg')
+    testFrame.loadImageFromFile('../test_images/test5.jpg')
     testFrame.processCurrentFrame()
     testFrame.displayCurrentImage()
 
-    testFrame.loadImageFromFile('../test_images/test2.jpg')
+    testFrame.loadImageFromFile('../test_images/test5.jpg')
     testFrame.processCurrentFrame()
     testFrame.displayCurrentImage()
 
 
-testLine()
+def videotest():
+    from moviepy.editor import VideoFileClip
+    testFrame = Frame()
+    testFrame.initializeCamera()
+    
+
+    cap = cv2.VideoCapture('../test_videos/project_video.mp4')
+
+    while(cap.isOpened()):
+        ret, frame = cap.read()
+
+        testFrame.currentImg = frame
+        
+        testFrame.processCurrentFrame()
+
+        cv2.imshow('video', testFrame.getOverlayImage())
+        
+        #testFrame.receiveFrame(frame)
+        #print(np.amax(testFrame.currentImg))
+        #cv2.imwrite('test_fromvideo.png', frame)
+        #testFrame.loadImageFromFile('test_fromvideo.png')
+        #exit()
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+videotest()
