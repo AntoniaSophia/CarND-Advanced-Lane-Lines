@@ -248,14 +248,20 @@ class EgoLane():
 
         img_undistort = frame.camera.undistort(img)
 
-        colorGrad = self.colorGradient(img_undistort,(170,220),(22,100))
+        colorGrad = self.colorGradient(img_undistort,(170,220),(18,100))
         warped = frame.camera.warp(colorGrad)
         maskedImage = frame.camera.maskInnerAreaOfInterest(warped)
         grayImage = frame.camera.rgbConvertToBlackWhite(maskedImage)
         
         self.histoCurvatureFit(grayImage)
         coloredLaneImage = self.displayLane(img)
-        
+       
+        #plt.imshow(colorGrad)
+        #plt.show()
+
+        #plt.imshow(maskedImage)
+        #plt.show()
+
 
         #print (np.amax(grayImage))
         grayImage = np.uint8(grayImage)
@@ -507,7 +513,7 @@ class Frame():
 
     def loadImageFromFile(self, filename):
         self.currentImg = cv2.imread(filename)
-        self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_BGR2RGB) 
+        self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_RGB2BGR) 
 
     def processCurrentFrame(self):
         self.currentEgoLaneOverlay = None
@@ -545,7 +551,7 @@ class Frame():
     def receiveFrame(self, img):
         #self.currentImage = copy.copy(img)
         self.currentImage = img
-        self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_BGR2RGB) 
+        self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_RGB2BGR) 
 
     def initializeCamera(self, fileName='../camera_cal/camera_calibration_pickle.p'):
         self.camera = Camera(fileName)
@@ -636,13 +642,13 @@ def testLine():
     testFrame = Frame()
     testFrame.initializeCamera()
 
-    testFrame.loadImageFromFile('../test_images/test5.jpg')
+    testFrame.loadImageFromFile('../temp_images/img_temp_1.png')
     testFrame.processCurrentFrame()
     testFrame.displayCurrentImage()
 
-    testFrame.loadImageFromFile('../test_images/test5.jpg')
-    testFrame.processCurrentFrame()
-    testFrame.displayCurrentImage()
+    # testFrame.loadImageFromFile('../test_images/test5.jpg')
+    # testFrame.processCurrentFrame()
+    # testFrame.displayCurrentImage()
 
 toggle = False
 
@@ -656,8 +662,8 @@ def videotest():
     #white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
     #time white_clip.write_videofile(white_output, audio=False)
 
-    #cap = cv2.VideoCapture('../test_videos/project_video.mp4')
-    cap = cv2.VideoCapture('../test_videos/challenge_video.mp4')
+    cap = cv2.VideoCapture('../test_videos/project_video.mp4')
+    #cap = cv2.VideoCapture('../test_videos/challenge_video.mp4')
     i = 0
 
     while(cap.isOpened()):
@@ -691,4 +697,7 @@ def videotest():
             break
 
     cap.release()
+
+
 videotest()
+#testLine()
