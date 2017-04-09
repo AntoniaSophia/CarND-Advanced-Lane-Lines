@@ -258,19 +258,37 @@ class EgoLane():
         
 
         #print (np.amax(grayImage))
-        #grayImage = np.uint8(grayImage)
-        #gray2color = cv2.cvtColor(grayImage,cv2.COLOR_GRAY2RGB ,3)/255
-        #plt.imshow(gray2color)
-        #plt.title('window fitting results')
+        grayImage = np.uint8(grayImage)
+        gray2color = cv2.cvtColor(grayImage,cv2.COLOR_GRAY2RGB ,3)
+        gray2color = cv2.addWeighted(coloredLaneImage.astype(np.float32)*255, 1, (gray2color.astype(np.float32))*255, 1, 0)
+
+        resized_image = cv2.resize(gray2color,None,fx=0.3, fy=0.3, interpolation = cv2.INTER_AREA)
+
+        #cv2.rectangle(resized_image, (2,2), (resized_image.shape[1]-2,resized_image.shape[0]-2), (255,255,255), 4) 
+
+        unwarped = frame.camera.unwarp(coloredLaneImage)*255
+
+
+
+        # print(np.amax(unwarped))
+        # print(np.amax(resized_image))
+        # print(unwarped.shape)
+        # print(resized_image.shape)
+        # print(unwarped.dtype)
+        # print(resized_image.dtype)
+
+
+
+
+        #src_mask = mask = 255 * np.ones(resized_image.shape, resized_image.dtype)
+        #unwarped = cv2.seamlessClone(resized_image.astype(np.uint8), unwarped.astype(np.uint8), src_mask.astype(np.uint8), (640,200), cv2.NORMAL_CLONE)
+
+        #plt.imshow(unwarped)
         #plt.show()
-        #gray2color = cv2.resize(gray2color, (100, 50)) 
- 
 
-
-        unwarped = frame.camera.unwarp(coloredLaneImage)
 
         new_image = np.zeros_like(unwarped)
-        #print(np.amax(unwarped))
+
         text1 = "Left Lane Dropout Counter: " + str(self.leftline.number_of_subsequent_invalid)
         text2 = "Right Lane Dropout Counter: " + str(self.rightline.number_of_subsequent_invalid)
         text3 = "Curvature radius left: " + str(self.leftline.radius_of_curvature)
@@ -283,9 +301,9 @@ class EgoLane():
         #unwarped = np.uint8(unwarped)
         #gray2color.copyTo( unwarped.submat( 500, gray2color.rows(), 500, gray2color.cols() ) );
         #result = cv2.addWeighted(unwarped, 0, gray2color, 1, 0)
-        result = cv2.addWeighted(unwarped, 1, new_image/255, 1, 0)
+        result = cv2.addWeighted(unwarped.astype(np.float32)*255, 1, (new_image.astype(np.float32))*255, 1, 0)
 
-
+        #cv2.rectangle(result, (20,20), (result.shape[1]-20,result.shape[0]-20), (0,0,0), 20) 
 
 
         return result
@@ -638,8 +656,8 @@ def videotest():
     #white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
     #time white_clip.write_videofile(white_output, audio=False)
 
-    cap = cv2.VideoCapture('../test_videos/project_video.mp4')
-    #cap = cv2.VideoCapture('../test_videos/challenge_video.mp4')
+    #cap = cv2.VideoCapture('../test_videos/project_video.mp4')
+    cap = cv2.VideoCapture('../test_videos/challenge_video.mp4')
     i = 0
 
     while(cap.isOpened()):
@@ -667,7 +685,7 @@ def videotest():
 
         else:
             #print("Toggle deactivated")
-
+            print()
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
