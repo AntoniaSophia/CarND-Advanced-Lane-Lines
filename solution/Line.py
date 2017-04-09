@@ -6,6 +6,26 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import os.path
 
+
+# Event listener, if button of mouse is clicked
+
+
+def onclick(event, x, y, flags, param):
+    global toggle
+
+    if event == cv2.EVENT_LBUTTONDOWN:    
+        #print the x,y coordinates of mouse
+        #print(x, y)
+        toggle = True
+        print(toggle)
+    elif event == cv2.EVENT_RBUTTONDOWN:    
+        #print the x,y coordinates of mouse
+        #print(x, y)
+        toggle = False
+        print(toggle)
+    return
+
+
 # Define a class to receive the characteristics of each line detection
 class Line():
     def __init__(self,orientation):
@@ -31,62 +51,95 @@ class Line():
         self.ally = []
 
         self.coeff_history = []
+        self.twisted_coeff_history = []
+
+        self.center_line_point = -1
 
         # orientation can be left or right lane
         self.orientation = orientation
 
-    def processLanePts(self, x_pts, y_pts,img_shape):
-        #print('-------------------------------------')
-        #print('Process pts on Line ' , self.orientation)
-        #print('Processing number of x_pts points' , len(x_pts))
-        #print('Processing number of y_pts points' , len(y_pts))
-        # Fit a second order polynomial to each
-        lane_fit = np.polyfit(y_pts, x_pts, 2)
+        self.number_of_subsequent_invalid = 0
 
+    def processLanePts(self, x_pts, y_pts,img_shape):
+        # initial assumption is that a line will be detected
+        self.detected = True
+
+
+        lane_fit = np.polyfit(y_pts, x_pts, 2)
+        twisted_lane_fit = np.polyfit(x_pts*0.707+y_pts*0.707, x_pts*(-0.707)+y_pts*0.707, 2)
 
         # Generate x and y values for plotting
         ploty = np.linspace(0, img_shape[0]-1, img_shape[0] )
         lane_fitx = lane_fit[0]*ploty**2 + lane_fit[1]*ploty + lane_fit[2]
 
-        #print("Coeff a" ,lane_fit[0])
-        #print("Coeff b" ,lane_fit[1])
-        #print("Coeff c" ,lane_fit[2])       
 
         if len(self.coeff_history)>0:
             mean_coeff = np.mean(self.coeff_history, axis=0)
+            mean_twisted_coeff = np.mean(self.twisted_coeff_history, axis=0)
         else:
             #first run! 
             self.coeff_history.append(lane_fit)
             mean_coeff = np.mean(self.coeff_history, axis=0)
+            self.twisted_coeff_history.append(twisted_lane_fit)
+            mean_twisted_coeff = np.mean(self.twisted_coeff_history, axis=0)
 
-        #print("Mean Coeff a" ,mean_coeff[0])
-        #print("Mean Coeff b" ,mean_coeff[1])
-        #print("Mean Coeff c" ,mean_coeff[2])
 
         relative_coeff_a_change = abs((lane_fit[0] - mean_coeff[0])/mean_coeff[0])
         relative_coeff_b_change = abs((lane_fit[1] - mean_coeff[1])/mean_coeff[1])
         relative_coeff_c_change = abs((lane_fit[2] - mean_coeff[2])/mean_coeff[2])
 
-        relative_coeff_a_change = 0
-        relative_coeff_b_change = 0
-        relative_coeff_c_change = 0
+        relative_twisted_coeff_a_change = abs((twisted_lane_fit[0] - mean_twisted_coeff[0])/mean_twisted_coeff[0])
+        relative_twisted_coeff_b_change = abs((twisted_lane_fit[1] - mean_twisted_coeff[1])/mean_twisted_coeff[1])
+        relative_twisted_coeff_c_change = abs((twisted_lane_fit[2] - mean_twisted_coeff[2])/mean_twisted_coeff[2])
 
-        if relative_coeff_a_change > 1 or relative_coeff_b_change > 1 or relative_coeff_c_change > 1:
+        relative_coeff_change_sum = relative_coeff_a_change + relative_coeff_b_change + relative_coeff_c_change
+
+        temp_center_line_point = lane_fit[0]*720**2 + lane_fit[1]*720 + lane_fit[2]
+
+
+        if (relative_coeff_a_change > 2 or relative_coeff_b_change > 2 or relative_coeff_c_change > 2) and relative_coeff_change_sum > 10:
             # Points seem to be invalid
             self.detected = False
+            self.number_of_subsequent_invalid = self.number_of_subsequent_invalid + 1
 
+
+        if self.number_of_subsequent_invalid > 3:
+                # reset!
+                self.number_of_subsequent_invalid = 0                
+                self.coeff_history = []
+                self.twisted_coeff_history = []
+                self.center_line_point = -1
+                self.allx = [] 
+                self.ally = [] 
+                self.diffs = np.array([0,0,0], dtype='float') 
+                self.radius_of_curvature = None 
+                self.current_fit = [np.array([False])]  
+                self.bestx = None     
+                self.best_fit = None  
+                self.radius_of_curvature = None
+                self.detected = True    #Required for a restart!!
             # skip values!
             #print('Frame seems to be invalid!!!')
-        else:   # valid points found!!
-            self.detected = True
+        else:
+            # do nothing
+            print()
 
+
+        if self.detected == False:
+            # do nothing
+            print()
+        else:   
+            # valid points found!!
+            self.detected = True
+            self.number_of_subsequent_invalid = 0  # reset the invalid counter
             #print('Frame seems to be valid!!!')
             # step 1: remove first frame coeffs if more than threshold items available
             if (len(self.coeff_history) >= 5):
                 self.coeff_history.pop(0)
-
+                self.twisted_coeff_history.pop(0)
             # step 2: append newly found coeffs
             self.coeff_history.append(lane_fit)
+            self.twisted_coeff_history.append(lane_fit)
 
             # step 3: append x/y points
             self.allx = x_pts
@@ -98,14 +151,78 @@ class Line():
             # step 5: set current fit polynomial coefficients
             self.diffs = [(lane_fit[0] - mean_coeff[0]) , (lane_fit[1] - mean_coeff[1]), (lane_fit[2] - mean_coeff[2])]
 
+            # step 6: set the mean best fit
+            mean_coeff = np.mean(self.coeff_history, axis=0)
+            self.best_fit = mean_coeff
+
+
+            # step 7: set the center_line
+            self.center_line_point = temp_center_line_point
+
+            if self.orientation is 'left':
+                self.line_base_pos = self.center_line_point - 300
+            else:
+                self.line_base_pos = 900 - self.center_line_point                 
+
             # step 6: set the curvature radius
-            # TODO
-            #self.radius_of_curvature = None 
+            self.radius_of_curvature = self.calculateCurvature()
+
     
             #step 7: distance in meters of vehicle center from the line
             # TODO
             #self.line_base_pos = None 
 
+        print('-----------------------------------------------------')
+        print('Process pts on Line ' , self.orientation)
+        print("Coeff a " ,lane_fit[0] , "   Twisted Coeff a " , twisted_lane_fit[0])
+        print("Coeff b" ,lane_fit[1] , "   Twisted Coeff b " , twisted_lane_fit[1])
+        print("Coeff c" ,lane_fit[2] , "   Twisted Coeff c " , twisted_lane_fit[2])       
+        print("Mean Coeff a" ,mean_coeff[0] , "   Mean Twisted Coeff a " , mean_twisted_coeff[0])
+        print("Mean Coeff b" ,mean_coeff[1], "   Mean Twisted Coeff b " , mean_twisted_coeff[1])
+        print("Mean Coeff c" ,mean_coeff[2], "   Mean Twisted Coeff c " , mean_twisted_coeff[2])
+        print("relative_coeff_a_change " ,relative_coeff_a_change , "relative_twisted_coeff_a_change " , relative_twisted_coeff_a_change)
+        print("relative_coeff_b_change " ,relative_coeff_b_change , "relative_twisted_coeff_b_change " , relative_twisted_coeff_b_change)
+        print("relative_coeff_c_change " ,relative_coeff_c_change , "relative_twisted_coeff_c_change " , relative_twisted_coeff_c_change)
+        print("center_line_point " ,self.center_line_point)
+        print("line_base_pos" ,self.line_base_pos)
+        print('-----------------------------------------------------')
+
+
+    def calculateCurvature(self):
+        # Generate some fake data to represent lane-line pixels
+        ploty = np.linspace(0, 719, num=720)# to cover same y-range as image
+        quadratic_coeff = self.current_fit[0] 
+
+        # For each y position generate random x position within +/-50 pix
+        # of the line base position in each case (x=300 for left, and x=900 for right)
+        if self.orientation == 'left':
+            points_x = np.array([300 + (y**2)*quadratic_coeff + np.random.randint(-50, high=51) 
+                                      for y in ploty])
+        else:
+            points_x = np.array([900 + (y**2)*quadratic_coeff + np.random.randint(-50, high=51) 
+                                        for y in ploty])
+
+        points_x = points_x[::-1]  # Reverse to match top-to-bottom in y
+
+        # Fit a second order polynomial to pixel positions in each fake lane line
+        points_x_fit = np.polyfit(ploty, points_x, 2)
+        fitx = points_x_fit[0]*ploty**2 + points_x_fit[1]*ploty + points_x_fit[2]
+
+        # Plot up the fake data
+        #mark_size = 3
+        # plt.plot(points_x, ploty, 'o', color='red', markersize=mark_size)
+        # plt.xlim(0, 1280)
+        # plt.ylim(0, 720)
+        # plt.plot(fitx, ploty, color='green', linewidth=3)
+        # plt.gca().invert_yaxis() # to visualize as we do the images
+        # plt.show()
+
+        # Define y-value where we want radius of curvature
+        # I'll choose the maximum y-value, corresponding to the bottom of the image
+        y_eval = np.max(ploty)
+        curverad = ((1 + (2*points_x_fit[0]*y_eval + points_x_fit[1])**2)**1.5) / np.absolute(2*points_x_fit[0])
+        #print(left_curverad, right_curverad)        
+        return curverad.astype(int)
 
 
 # Define a class to receive the characteristics of each line detection
@@ -136,40 +253,77 @@ class EgoLane():
         maskedImage = frame.camera.maskInnerAreaOfInterest(warped)
         grayImage = frame.camera.rgbConvertToBlackWhite(maskedImage)
         
-        # plt.imshow(grayImage)
-        # plt.title('window fitting results')
-        # plt.show()
-
         self.histoCurvatureFit(grayImage)
         coloredLaneImage = self.displayLane(img)
+        
+
+        #print (np.amax(grayImage))
+        #grayImage = np.uint8(grayImage)
+        #gray2color = cv2.cvtColor(grayImage,cv2.COLOR_GRAY2RGB ,3)/255
+        #plt.imshow(gray2color)
+        #plt.title('window fitting results')
+        #plt.show()
+        #gray2color = cv2.resize(gray2color, (100, 50)) 
+ 
+
 
         unwarped = frame.camera.unwarp(coloredLaneImage)
-        return unwarped
+
+        new_image = np.zeros_like(unwarped)
+        #print(np.amax(unwarped))
+        text1 = "Left Lane Dropout Counter: " + str(self.leftline.number_of_subsequent_invalid)
+        text2 = "Right Lane Dropout Counter: " + str(self.rightline.number_of_subsequent_invalid)
+        text3 = "Curvature radius left: " + str(self.leftline.radius_of_curvature)
+        text4 = "Curvature radius right: " + str(self.rightline.radius_of_curvature)
+        cv2.putText(new_image,text1,(50,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+        cv2.putText(new_image,text2,(900,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+        cv2.putText(new_image,text3,(50,70), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+        cv2.putText(new_image,text4,(900,70), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+
+        #unwarped = np.uint8(unwarped)
+        #gray2color.copyTo( unwarped.submat( 500, gray2color.rows(), 500, gray2color.cols() ) );
+        #result = cv2.addWeighted(unwarped, 0, gray2color, 1, 0)
+        result = cv2.addWeighted(unwarped, 1, new_image/255, 1, 0)
+
+
+
+
+        return result
 
 
     def displayLane(self,img):
         overlay_img = np.zeros_like(img)
 
-        left_mean_coeff = np.mean(self.leftline.coeff_history, axis=0)
-        right_mean_coeff = np.mean(self.rightline.coeff_history, axis=0)
-        
         ploty = np.linspace(0, img.shape[0]-1, img.shape[0] )
-        #left_fitx = self.leftline.current_fit[0]*ploty**2 + self.leftline.current_fit[1]*ploty + self.leftline.current_fit[2]
-        #right_fitx = self.rightline.current_fit[0]*ploty**2 + self.rightline.current_fit[1]*ploty + self.rightline.current_fit[2]
-
-        left_fitx = left_mean_coeff[0]*ploty**2 + left_mean_coeff[1]*ploty + left_mean_coeff[2]
-        right_fitx = right_mean_coeff[0]*ploty**2 + right_mean_coeff[1]*ploty + right_mean_coeff[2]
 
         if self.leftline.detected == True:
+            left_mean_coeff = self.leftline.current_fit
+            left_fitx = left_mean_coeff[0]*ploty**2 + left_mean_coeff[1]*ploty + left_mean_coeff[2]
+
             for x1,y1 in zip(left_fitx.astype(int),ploty.astype(int)):
-                #print(y1)
-                cv2.circle(overlay_img,(x1,y1),2,(255,255, 0),2)
+                cv2.circle(overlay_img,(x1,y1),4,(255,255, 0),2)
+        else:
+            left_mean_coeff = self.leftline.best_fit
+            left_fitx = left_mean_coeff[0]*ploty**2 + left_mean_coeff[1]*ploty + left_mean_coeff[2]
+            for x1,y1 in zip(left_fitx.astype(int),ploty.astype(int)):
+                cv2.circle(overlay_img,(x1,y1),4,(255, 0, 255),2)
 
         if self.rightline.detected == True:
+            right_mean_coeff = self.rightline.current_fit
+            right_fitx = right_mean_coeff[0]*ploty**2 + right_mean_coeff[1]*ploty + right_mean_coeff[2]
             for x1,y1 in zip(right_fitx.astype(int),ploty.astype(int)):
-                cv2.circle(overlay_img,(x1,y1),2,(255,255, 0),2)
+                cv2.circle(overlay_img,(x1,y1),4,(255,255, 0),2)
+        else:
+            right_mean_coeff = self.rightline.best_fit
+            right_fitx = right_mean_coeff[0]*ploty**2 + right_mean_coeff[1]*ploty + right_mean_coeff[2]
+            for x1,y1 in zip(right_fitx.astype(int),ploty.astype(int)):
+                cv2.circle(overlay_img,(x1,y1),4,(255, 0, 255),2)
+
 
         if self.rightline.detected == True and self.leftline.detected == True:
+            for x1,y1,x2,y2 in zip(left_fitx.astype(int),ploty.astype(int),right_fitx.astype(int),ploty.astype(int)):
+                cv2.line(overlay_img,(x1,y1),(x2,y2),(255,0, 0),2)
+        elif self.leftline.best_fit != None and self.rightline.best_fit != None:
             for x1,y1,x2,y2 in zip(left_fitx.astype(int),ploty.astype(int),right_fitx.astype(int),ploty.astype(int)):
                 cv2.line(overlay_img,(x1,y1),(x2,y2),(255,0, 0),2)
 
@@ -335,7 +489,7 @@ class Frame():
 
     def loadImageFromFile(self, filename):
         self.currentImg = cv2.imread(filename)
-        self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_RGB2BGR) 
+        self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_BGR2RGB) 
 
     def processCurrentFrame(self):
         self.currentEgoLaneOverlay = None
@@ -371,15 +525,15 @@ class Frame():
 
 
     def receiveFrame(self, img):
-        self.currentImage = copy.copy(img)
-        #self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_RGB2BGR) 
+        #self.currentImage = copy.copy(img)
+        self.currentImage = img
+        self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_BGR2RGB) 
 
     def initializeCamera(self, fileName='../camera_cal/camera_calibration_pickle.p'):
         self.camera = Camera(fileName)
 
     def videoPipeline(self, img):
         self.receiveFrame(img)
-        self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_RGB2BGR) 
         self.processCurrentFrame()
 
         if self.currentEgoLaneOverlay != None:
@@ -445,6 +599,10 @@ class Camera():
         contours = np.array( [ [imgshape[1],0], [rightLaneArea[1],0], [rightLaneArea[1],imgshape[0]], [imgshape[1],imgshape[0]] ] )
         cv2.fillPoly(img, pts =[contours], color=(0,0,0))
 
+        # remove inner area
+        contours = np.array( [ [leftLaneArea[1],0], [rightLaneArea[0],0], [rightLaneArea[0],imgshape[0]], [leftLaneArea[1],imgshape[0]] ] )
+        cv2.fillPoly(img, pts =[contours], color=(0,0,0))
+
         return img
 
     def rgbConvertToBlackWhite(self, rgb, thresh=10):
@@ -468,6 +626,7 @@ def testLine():
     testFrame.processCurrentFrame()
     testFrame.displayCurrentImage()
 
+toggle = False
 
 def videotest():
     from moviepy.editor import VideoFileClip
@@ -475,7 +634,13 @@ def videotest():
     testFrame.initializeCamera()
     
 
+    #clip1 = VideoFileClip("../test_videos/project_video.mp4")
+    #white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
+    #time white_clip.write_videofile(white_output, audio=False)
+
     cap = cv2.VideoCapture('../test_videos/project_video.mp4')
+    #cap = cv2.VideoCapture('../test_videos/challenge_video.mp4')
+    i = 0
 
     while(cap.isOpened()):
         ret, frame = cap.read()
@@ -483,14 +648,26 @@ def videotest():
         testFrame.currentImg = frame
         
         testFrame.processCurrentFrame()
+        fig = plt.figure(1)
+        #To print out position of Mouse if left button clicked
+        cid = fig.canvas.mpl_connect('button_press_event', onclick)
 
         cv2.imshow('video', testFrame.getOverlayImage())
-        
+        cv2.setMouseCallback('video', onclick)        
         #testFrame.receiveFrame(frame)
         #print(np.amax(testFrame.currentImg))
         #cv2.imwrite('test_fromvideo.png', frame)
         #testFrame.loadImageFromFile('test_fromvideo.png')
         #exit()
+
+        if (toggle == True):
+            #print("Toggle activated")
+            i = i + 1
+            cv2.imwrite('../temp_images/img_temp_' + str(i) + '.png', frame)
+
+        else:
+            #print("Toggle deactivated")
+
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
