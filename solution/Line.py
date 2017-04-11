@@ -98,12 +98,15 @@ class Line():
 
 
         if (relative_coeff_a_change > 2 or relative_coeff_b_change > 2 or relative_coeff_c_change > 2) and relative_coeff_change_sum > 10:
-            # Points seem to be invalid
-            self.detected = False
-            self.number_of_subsequent_invalid = self.number_of_subsequent_invalid + 1
+            if abs(lane_fit[0]) < 0.0001 and abs(lane_fit[1]) < 0.2:
+                # we assume rather a straight line!!
+                print('Straight line assumed')
+            else:
+                # Points seem to be invalid
+                self.detected = False
+                self.number_of_subsequent_invalid = self.number_of_subsequent_invalid + 1
 
-
-        if self.number_of_subsequent_invalid > 3:
+        if self.number_of_subsequent_invalid > 4:
                 # reset!
                 self.number_of_subsequent_invalid = 0                
                 self.coeff_history = []
@@ -248,12 +251,12 @@ class EgoLane():
 
         img_undistort = frame.camera.undistort(img)
 
-        colorGrad = self.colorGradient(img_undistort,(170,220),(18,100))
+        colorGrad = self.colorGradient(img_undistort,(170,220),(22,100))
         warped = frame.camera.warp(colorGrad)
         maskedImage = frame.camera.maskInnerAreaOfInterest(warped)
         grayImage = frame.camera.rgbConvertToBlackWhite(maskedImage)
         
-        self.histoCurvatureFit(grayImage)
+        histoCurvatureFitImage = self.histoCurvatureFit(grayImage)
         coloredLaneImage = self.displayLane(img)
        
         #plt.imshow(colorGrad)
@@ -286,8 +289,8 @@ class EgoLane():
 
 
 
-        #src_mask = mask = 255 * np.ones(resized_image.shape, resized_image.dtype)
-        #unwarped = cv2.seamlessClone(resized_image.astype(np.uint8), unwarped.astype(np.uint8), src_mask.astype(np.uint8), (640,200), cv2.NORMAL_CLONE)
+        src_mask = mask = 255 * np.ones(resized_image.shape, resized_image.dtype)
+        unwarped = cv2.seamlessClone(resized_image.astype(np.uint8), unwarped.astype(np.uint8), src_mask.astype(np.uint8), (640,200), cv2.NORMAL_CLONE)
 
         #plt.imshow(unwarped)
         #plt.show()
@@ -397,6 +400,10 @@ class EgoLane():
         height = int(binary_warped.shape[0]/2)
         histogram = np.sum(binary_warped[height:,:], axis=0)
 
+        #print(histogram)
+        #plt.plot(histogram)
+        #plt.show()
+
         #histogram = np.sum(binary_warped[binary_warped.shape[0]/2:,:], axis=0)
         # Create an output image to draw on and  visualize the result
         out_img = np.dstack((binary_warped, binary_warped, binary_warped))*255
@@ -418,7 +425,7 @@ class EgoLane():
         leftx_current = leftx_base
         rightx_current = rightx_base
         # Set the width of the windows +/- margin
-        margin = 100
+        margin = 50
         # Set minimum number of pixels found to recenter window
         minpix = 50
         # Create empty lists to receive left and right lane pixel indices
@@ -459,45 +466,57 @@ class EgoLane():
 
         self.leftline.processLanePts(leftx, lefty, binary_warped.shape)
 
-
+        ###############################################
+        # here only the plotting part starts 
+        ###############################################
         rightx = nonzerox[right_lane_inds]
         righty = nonzeroy[right_lane_inds] 
 
         self.rightline.processLanePts(rightx, righty, binary_warped.shape)
 
+        left_fit = self.leftline.current_fit
+        right_fit = self.rightline.current_fit
 
-        # # Create an image to draw on and an image to show the selection window
-        # out_img = np.dstack((binary_warped, binary_warped, binary_warped))*255
-        # window_img = np.zeros_like(out_img)
-        # # Color in left and right line pixels
-        # out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
-        # out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
+        # Generate x and y values for plotting
+        ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
+        left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
+        right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+        
+        # Create an image to draw on and an image to show the selection window
+        out_img = np.dstack((binary_warped, binary_warped, binary_warped))*255
+        window_img = np.zeros_like(out_img)
+        # Color in left and right line pixels
+        out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
+        out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
 
         # Generate a polygon to illustrate the search window area
         # And recast the x and y points into usable format for cv2.fillPoly()
-        # left_line_window1 = np.array([np.transpose(np.vstack([left_fitx-margin, ploty]))])
-        # left_line_window2 = np.array([np.flipud(np.transpose(np.vstack([left_fitx+margin, ploty])))])
-        # left_line_pts = np.hstack((left_line_window1, left_line_window2))
-        # right_line_window1 = np.array([np.transpose(np.vstack([right_fitx-margin, ploty]))])
-        # right_line_window2 = np.array([np.flipud(np.transpose(np.vstack([right_fitx+margin, ploty])))])
-        # right_line_pts = np.hstack((right_line_window1, right_line_window2))
+        left_line_window1 = np.array([np.transpose(np.vstack([left_fitx-margin, ploty]))])
+        left_line_window2 = np.array([np.flipud(np.transpose(np.vstack([left_fitx+margin, ploty])))])
+        left_line_pts = np.hstack((left_line_window1, left_line_window2))
+        right_line_window1 = np.array([np.transpose(np.vstack([right_fitx-margin, ploty]))])
+        right_line_window2 = np.array([np.flipud(np.transpose(np.vstack([right_fitx+margin, ploty])))])
+        right_line_pts = np.hstack((right_line_window1, right_line_window2))
 
         # fill the lane with red
-        # for x1,y1,x2,y2 in zip(left_fitx.astype(int),ploty.astype(int),right_fitx.astype(int),ploty.astype(int)):
-        #     cv2.line(window_img,(x1,y1),(x2,y2),(255,0, 0),2)
-        #     cv2.circle(window_img,(x1,y1),2,(255,255, 0),2)
-        #     cv2.circle(window_img,(x2,y2),2,(255,255, 0),2)
+        for x1,y1,x2,y2 in zip(left_fitx.astype(int),ploty.astype(int),right_fitx.astype(int),ploty.astype(int)):
+            cv2.line(window_img,(x1,y1),(x2,y2),(255,0, 0),2)
+            cv2.circle(window_img,(x1,y1),2,(255,255, 0),2)
+            cv2.circle(window_img,(x2,y2),2,(255,255, 0),2)
         
-
         # Draw the lane onto the warped blank image in green color
-        #cv2.fillPoly(window_img, np.int_([left_line_pts]), (0,255, 0))
-        #cv2.fillPoly(window_img, np.int_([right_line_pts]), (0,255, 0))
+        cv2.fillPoly(window_img, np.int_([left_line_pts]), (0,255, 0))
+        cv2.fillPoly(window_img, np.int_([right_line_pts]), (0,255, 0))
 
-        #result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
+        result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
+        #plt.plot(left_fitx, ploty, color='yellow')
+        #plt.plot(right_fitx, ploty, color='yellow')
 
+        #print(window_img)
+        #plt.imshow(result/255)
+        #plt.show()
+        return result/255
         # plt.imshow(result/255)
-        # plt.plot(left_fitx, ploty, color='yellow')
-        # plt.plot(right_fitx, ploty, color='yellow')
         # plt.xlim(0, 1280)
         # plt.ylim(720, 0)
         # result = (result/255)
@@ -551,7 +570,7 @@ class Frame():
     def receiveFrame(self, img):
         #self.currentImage = copy.copy(img)
         self.currentImage = img
-        self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_RGB2BGR) 
+        #self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_RGB2BGR) 
 
     def initializeCamera(self, fileName='../camera_cal/camera_calibration_pickle.p'):
         self.camera = Camera(fileName)
@@ -642,7 +661,7 @@ def testLine():
     testFrame = Frame()
     testFrame.initializeCamera()
 
-    testFrame.loadImageFromFile('../temp_images/img_temp_1.png')
+    testFrame.loadImageFromFile('../temp_images/img_temp_548.png')
     testFrame.processCurrentFrame()
     testFrame.displayCurrentImage()
 
@@ -650,7 +669,7 @@ def testLine():
     # testFrame.processCurrentFrame()
     # testFrame.displayCurrentImage()
 
-toggle = False
+toggle = True
 
 def videotest():
     from moviepy.editor import VideoFileClip
@@ -659,24 +678,62 @@ def videotest():
     
 
     #clip1 = VideoFileClip("../test_videos/project_video.mp4")
-    #white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
-    #time white_clip.write_videofile(white_output, audio=False)
+    #white_clip = clip1.fl_image(testFrame.videoPipeline) #NOTE: this function expects color images!!
+    #white_clip.write_videofile(white_output, audio=False)
+    #exit()
+
+#    cap = cv2.VideoCapture('../test_videos/challenge_video.mp4')
+#    out = cv2.VideoWriter('c:/temp/challenge_video.avi', cv2.VideoWriter_fourcc(*'XVID'), 28.0, (1280,720))    
 
     cap = cv2.VideoCapture('../test_videos/project_video.mp4')
+    out = cv2.VideoWriter('c:/temp/project_video.mp4', cv2.VideoWriter_fourcc(*'XVID'), 28.0, (1280,720))    
+
     #cap = cv2.VideoCapture('../test_videos/challenge_video.mp4')
     i = 0
-
+    count=0
     while(cap.isOpened()):
         ret, frame = cap.read()
 
+
+        if frame == None:
+            break
+
+        if frame.shape == None:
+            break
+
+        if frame.shape[0]==0 or frame.shape[1]==0:
+            break
+
         testFrame.currentImg = frame
+
+
+
+
+        #cv2.imshow('video', testFrame.getOverlayImage())
+        count+=1
+        if count > 12000:
+            break
+
+
         
         testFrame.processCurrentFrame()
         fig = plt.figure(1)
         #To print out position of Mouse if left button clicked
         cid = fig.canvas.mpl_connect('button_press_event', onclick)
 
-        cv2.imshow('video', testFrame.getOverlayImage())
+        
+        out.write(testFrame.getOverlayImage())
+        
+        if (toggle == True):
+            #print("Toggle activated")
+            i = i + 1
+            cv2.imwrite('../temp_images/img_temp_' + str(i) + '.png', frame)
+            cv2.imwrite('../temp_images_1/img_overlay_' + str(i) + '.png', testFrame.getOverlayImage())
+
+        else:
+            #print("Toggle deactivated")
+            print()
+
         cv2.setMouseCallback('video', onclick)        
         #testFrame.receiveFrame(frame)
         #print(np.amax(testFrame.currentImg))
@@ -684,20 +741,11 @@ def videotest():
         #testFrame.loadImageFromFile('test_fromvideo.png')
         #exit()
 
-        if (toggle == True):
-            #print("Toggle activated")
-            i = i + 1
-            cv2.imwrite('../temp_images/img_temp_' + str(i) + '.png', frame)
-
-        else:
-            #print("Toggle deactivated")
-            print()
-
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
     cap.release()
-
+    out.release()
 
 videotest()
 #testLine()
