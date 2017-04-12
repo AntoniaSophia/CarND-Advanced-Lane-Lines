@@ -20,6 +20,7 @@ def onclick(event):
 nx = 9 # the number of inside corners in x
 ny = 6 # the number of inside corners in y
 
+# define the left bottom corner and right bottom corner of the warped image
 leftLaneCenter = 300
 rightLaneCenter = 900
 
@@ -66,6 +67,7 @@ def calculateWarp(img, mtx, dist):
     # Search for corners in the grayscaled image
 
     # define the 4 coordinates (right top, right bottom, left bottom, left top) in the source image
+    # those points are just derived from clicking on an image of a straight road track straight_lines1.jpg
     src = np.float32(
         [[703 , 460],
          [1104 , 718],
