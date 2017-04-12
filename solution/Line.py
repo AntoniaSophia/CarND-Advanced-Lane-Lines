@@ -7,9 +7,10 @@ import matplotlib.image as mpimg
 import os.path
 
 
+
+xm_per_pix = 3.7/700 # meters per pixel in x dimension
+
 # Event listener, if button of mouse is clicked
-
-
 def onclick(event, x, y, flags, param):
     global toggle
 
@@ -59,6 +60,9 @@ class Line():
         self.orientation = orientation
 
         self.number_of_subsequent_invalid = 0
+        self.number_of_subsequent_valid = 0
+
+        self.historyDepth = 5
 
     def processLanePts(self, x_pts, y_pts,img_shape):
         # initial assumption is that a line will be detected
@@ -97,16 +101,30 @@ class Line():
         temp_center_line_point = lane_fit[0]*720**2 + lane_fit[1]*720 + lane_fit[2]
 
 
-        if (relative_coeff_a_change > 2 or relative_coeff_b_change > 2 or relative_coeff_c_change > 2) and relative_coeff_change_sum > 10:
+        if (relative_coeff_a_change > 2 or relative_coeff_b_change > 2 or relative_coeff_c_change > 2) and relative_coeff_change_sum > 5:
             if abs(lane_fit[0]) < 0.0001 and abs(lane_fit[1]) < 0.2:
                 # we assume rather a straight line!!
                 print('Straight line assumed')
             else:
                 # Points seem to be invalid
                 self.detected = False
-                self.number_of_subsequent_invalid = self.number_of_subsequent_invalid + 1
 
-        if self.number_of_subsequent_invalid > 4:
+
+        sign_change_a = False
+        sign_change_b = False
+
+        if (lane_fit[0] > 0 and self.coeff_history[len(self.coeff_history)-1][0] < 0) or (lane_fit[0] < 0 and self.coeff_history[len(self.coeff_history)-1][0] > 0):
+            sign_change_a = True
+
+        if (lane_fit[1] > 0 and self.coeff_history[len(self.coeff_history)-1][1] < 0) or (lane_fit[1] < 0 and self.coeff_history[len(self.coeff_history)-1][1] > 0):
+            sign_change_b = True
+
+
+        if sign_change_a==True and sign_change_b==True:
+               # Points seem to be invalid
+                self.detected = False
+  
+        if self.number_of_subsequent_invalid > 5:
                 # reset!
                 self.number_of_subsequent_invalid = 0                
                 self.coeff_history = []
@@ -129,15 +147,26 @@ class Line():
 
 
         if self.detected == False:
-            # do nothing
-            print()
+            self.number_of_subsequent_invalid = self.number_of_subsequent_invalid + 1
+            if (len(self.coeff_history) >= self.historyDepth):
+                self.coeff_history.pop(0)
+            # step 2: append newly found coeffs
+            self.coeff_history.append(lane_fit)
+            self.number_of_subsequent_valid = 0  # 
+
+            # step 6: set the mean best fit
+            mean_coeff = np.mean(self.coeff_history, axis=0)
+            self.best_fit = mean_coeff  
+            self.current_fit = self.best_fit          
+
         else:   
             # valid points found!!
             self.detected = True
+            self.number_of_subsequent_valid += 1  # 
             self.number_of_subsequent_invalid = 0  # reset the invalid counter
             #print('Frame seems to be valid!!!')
             # step 1: remove first frame coeffs if more than threshold items available
-            if (len(self.coeff_history) >= 5):
+            if (len(self.coeff_history) >= self.historyDepth):
                 self.coeff_history.pop(0)
                 self.twisted_coeff_history.pop(0)
             # step 2: append newly found coeffs
@@ -171,6 +200,7 @@ class Line():
             self.radius_of_curvature = self.calculateCurvature()
 
     
+            self.current_fit = self.best_fit          
             #step 7: distance in meters of vehicle center from the line
             # TODO
             #self.line_base_pos = None 
@@ -253,7 +283,7 @@ class EgoLane():
 
         colorGrad = self.colorGradient(img_undistort,(170,220),(22,100))
         warped = frame.camera.warp(colorGrad)
-        maskedImage = frame.camera.maskInnerAreaOfInterest(warped)
+        maskedImage = frame.camera.maskAreaOfInterest(warped)
         grayImage = frame.camera.rgbConvertToBlackWhite(maskedImage)
         
         histoCurvatureFitImage = self.histoCurvatureFit(grayImage)
@@ -300,12 +330,20 @@ class EgoLane():
 
         text1 = "Left Lane Dropout Counter: " + str(self.leftline.number_of_subsequent_invalid)
         text2 = "Right Lane Dropout Counter: " + str(self.rightline.number_of_subsequent_invalid)
-        text3 = "Curvature radius left: " + str(self.leftline.radius_of_curvature)
-        text4 = "Curvature radius right: " + str(self.rightline.radius_of_curvature)
+        text3 = "Curvature radius left: " + str(self.leftline.radius_of_curvature) + " (m)"
+        text4 = "Curvature radius right: " + str(self.rightline.radius_of_curvature) + " (m)"
+        text5 = "Left Lane from center: " + str(round(self.leftline.line_base_pos*xm_per_pix,2)*100) + ' (cm)'
+        text6 = "Right Lane from center: " + str(round(self.rightline.line_base_pos*xm_per_pix,2)*100) + ' (cm)'
+        text7 = "RESTART! " 
         cv2.putText(new_image,text1,(50,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
         cv2.putText(new_image,text2,(900,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
         cv2.putText(new_image,text3,(50,70), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
         cv2.putText(new_image,text4,(900,70), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+        cv2.putText(new_image,text5,(50,90), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+        cv2.putText(new_image,text6,(900,90), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+        
+        if (self.leftline.number_of_subsequent_invalid == 5 or self.rightline.number_of_subsequent_invalid == 5):
+            cv2.putText(new_image,text7,(540,60), cv2.FONT_HERSHEY_SIMPLEX, 1,(0,0,255),2,cv2.LINE_AA)
 
         #unwarped = np.uint8(unwarped)
         #gray2color.copyTo( unwarped.submat( 500, gray2color.rows(), 500, gray2color.cols() ) );
@@ -324,7 +362,8 @@ class EgoLane():
         ploty = np.linspace(0, img.shape[0]-1, img.shape[0] )
 
         if self.leftline.detected == True:
-            left_mean_coeff = self.leftline.current_fit
+            #left_mean_coeff = self.leftline.current_fit
+            left_mean_coeff = self.leftline.best_fit
             left_fitx = left_mean_coeff[0]*ploty**2 + left_mean_coeff[1]*ploty + left_mean_coeff[2]
 
             for x1,y1 in zip(left_fitx.astype(int),ploty.astype(int)):
@@ -336,7 +375,8 @@ class EgoLane():
                 cv2.circle(overlay_img,(x1,y1),4,(255, 0, 255),2)
 
         if self.rightline.detected == True:
-            right_mean_coeff = self.rightline.current_fit
+            #right_mean_coeff = self.rightline.current_fit
+            right_mean_coeff = self.rightline.best_fit
             right_fitx = right_mean_coeff[0]*ploty**2 + right_mean_coeff[1]*ploty + right_mean_coeff[2]
             for x1,y1 in zip(right_fitx.astype(int),ploty.astype(int)):
                 cv2.circle(overlay_img,(x1,y1),4,(255,255, 0),2)
@@ -349,10 +389,10 @@ class EgoLane():
 
         if self.rightline.detected == True and self.leftline.detected == True:
             for x1,y1,x2,y2 in zip(left_fitx.astype(int),ploty.astype(int),right_fitx.astype(int),ploty.astype(int)):
-                cv2.line(overlay_img,(x1,y1),(x2,y2),(255,0, 0),2)
+                cv2.line(overlay_img,(x1,y1),(x2,y2),(0, 255, 0),2)
         elif self.leftline.best_fit != None and self.rightline.best_fit != None:
             for x1,y1,x2,y2 in zip(left_fitx.astype(int),ploty.astype(int),right_fitx.astype(int),ploty.astype(int)):
-                cv2.line(overlay_img,(x1,y1),(x2,y2),(255,0, 0),2)
+                cv2.line(overlay_img,(x1,y1),(x2,y2),(0, 255, 0),2)
 
         return overlay_img/255
 
@@ -425,7 +465,7 @@ class EgoLane():
         leftx_current = leftx_base
         rightx_current = rightx_base
         # Set the width of the windows +/- margin
-        margin = 50
+        margin = 40
         # Set minimum number of pixels found to recenter window
         minpix = 50
         # Create empty lists to receive left and right lane pixel indices
@@ -530,14 +570,17 @@ class Frame():
         self.egoLane = EgoLane()
         self.camera = None
 
+    # load an image from a file
     def loadImageFromFile(self, filename):
         self.currentImg = cv2.imread(filename)
         self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_RGB2BGR) 
 
+    # process the current frame    
     def processCurrentFrame(self):
         self.currentEgoLaneOverlay = None
         self.currentEgoLaneOverlay = self.egoLane.processFrame(self)
 
+    # helper method which just displays the current image
     def displayCurrentImage(self, overlay=True):
 
         if overlay == True and self.currentEgoLaneOverlay != None:
@@ -554,8 +597,8 @@ class Frame():
         plt.title('Input Image')
         plt.show()
 
+    # return the overlay image if available
     def getOverlayImage(self):
-
         if self.currentEgoLaneOverlay != None:
             
             img_pipelined = np.uint8(255*self.currentEgoLaneOverlay/np.max(self.currentEgoLaneOverlay))
@@ -567,34 +610,20 @@ class Frame():
 
 
 
-    def receiveFrame(self, img):
-        #self.currentImage = copy.copy(img)
-        self.currentImage = img
-        #self.currentImg = cv2.cvtColor(self.currentImg, cv2.COLOR_RGB2BGR) 
-
+    # initialize the camera with the calibration data from the presiously created pickle
     def initializeCamera(self, fileName='../camera_cal/camera_calibration_pickle.p'):
         self.camera = Camera(fileName)
 
-    def videoPipeline(self, img):
-        self.receiveFrame(img)
-        self.processCurrentFrame()
 
-        if self.currentEgoLaneOverlay != None:
-            img_pipelined = np.uint8(255*self.currentEgoLaneOverlay/np.max(self.currentEgoLaneOverlay))
-            result = cv2.addWeighted(self.currentImg.astype(int), 1, img_pipelined.astype(int), 0.5, 0,dtype=cv2.CV_8U)   
-            return result     
-        else:
-            return img
-
-
+# Camera class which contains all relevant camera information
 class Camera():
     def __init__(self,fileName):
         self.mtx = None
         self.dist = None
         self.M = None
         self.Minv = None
-        self.rightLaneCenter = None
-        self.leftLaneCenter = None
+        self.rightLaneCenter = None       # this is actually the right lower point of the warped image
+        self.leftLaneCenter = None        # this is actually the left lower point of the warped image
         self.calibrationFileName = fileName
 
         if os.path.isfile(fileName) == True:
@@ -604,6 +633,7 @@ class Camera():
             #TODO: auto-calibrate
             exit()
 
+    # load the camera calibration 
     def loadCameraCalibration(self):
         # Read in the saved camera matrix and distortion coefficients
         # These are the arrays you calculated using cv2.calibrateCamera()
@@ -615,20 +645,24 @@ class Camera():
         self.rightLaneCenter = dist_pickle["rightLaneCenter"]
         self.leftLaneCenter = dist_pickle["leftLaneCenter"]    
 
+    # just capsulate the warp image
     def warp(self, img):
         img_size = (img.shape[1], img.shape[0])
         warped = cv2.warpPerspective(img, self.M, img_size,flags=cv2.INTER_LINEAR)
         return warped
 
+    # just capsulate the unwarp function
     def unwarp(self, img):
         img_size = (img.shape[1], img.shape[0])
         unwarped = cv2.warpPerspective(img, self.Minv, img_size,flags=cv2.INTER_LINEAR)
         return unwarped
 
+    # just capsulate the undistort function
     def undistort(self, img):
         return cv2.undistort(img, self.mtx, self.dist, None, self.mtx)
 
-    def maskInnerAreaOfInterest(self, img,maskrange=150):
+    # mask the area of interest and remove area left of left line, right of right line and between both lines    
+    def maskAreaOfInterest(self, img,maskrange=150):
 
         imgshape = img.shape
         leftLaneArea = [self.leftLaneCenter-maskrange, self.leftLaneCenter+maskrange]
@@ -648,6 +682,7 @@ class Camera():
 
         return img
 
+    # convert rgb image to a pure black/white image
     def rgbConvertToBlackWhite(self, rgb, thresh=10):
         r, g, b = rgb[:,:,0], rgb[:,:,1], rgb[:,:,2]
         
@@ -657,16 +692,33 @@ class Camera():
         return (np.logical_or(r,b)*255)
 
 
+# just a function for debug purposes
 def testLine():
     testFrame = Frame()
     testFrame.initializeCamera()
 
-    testFrame.loadImageFromFile('../temp_images/img_temp_548.png')
+
+    testFrame.loadImageFromFile('../test_images/img_temp_1.png')
+
+    img = testFrame.currentImg
+    channels = cv2.cvtColor(img, cv2.COLOR_BGR2YUV);
+    cv2.split(img, channels);
+    channels = cv2.equalizeHist(channels[0]);
+    cv2.merge(channels[0], img);
+    cv2.cvtColor(img, cv2.COLOR_YUV2BGR);
+
+    plt.imshow(img)
+    plt.show()
+
+
     testFrame.processCurrentFrame()
     testFrame.displayCurrentImage()
 
+    #testFrame.loadImageFromFile('../temp_images/img_temp_1.png')
+    #testFrame.processCurrentFrame()
+    #testFrame.displayCurrentImage()
     # testFrame.loadImageFromFile('../test_images/test5.jpg')
-    # testFrame.processCurrentFrame()
+    # testFrame.processCurrentFrame()    testFrame.loadImageFromFile('../temp_images/img_temp_583.png')
     # testFrame.displayCurrentImage()
 
 toggle = True
@@ -675,26 +727,19 @@ def videotest():
     from moviepy.editor import VideoFileClip
     testFrame = Frame()
     testFrame.initializeCamera()
-    
 
-    #clip1 = VideoFileClip("../test_videos/project_video.mp4")
-    #white_clip = clip1.fl_image(testFrame.videoPipeline) #NOTE: this function expects color images!!
-    #white_clip.write_videofile(white_output, audio=False)
-    #exit()
-
-#    cap = cv2.VideoCapture('../test_videos/challenge_video.mp4')
-#    out = cv2.VideoWriter('c:/temp/challenge_video.avi', cv2.VideoWriter_fourcc(*'XVID'), 28.0, (1280,720))    
+    #cap = cv2.VideoCapture('../test_videos/challenge_video.mp4')
+    #out = cv2.VideoWriter('c:/temp/challenge_video.avi', cv2.VideoWriter_fourcc(*'XVID'), 28.0, (1280,720))    
 
     cap = cv2.VideoCapture('../test_videos/project_video.mp4')
     out = cv2.VideoWriter('c:/temp/project_video.mp4', cv2.VideoWriter_fourcc(*'XVID'), 28.0, (1280,720))    
 
-    #cap = cv2.VideoCapture('../test_videos/challenge_video.mp4')
     i = 0
-    count=0
     while(cap.isOpened()):
         ret, frame = cap.read()
 
 
+        # check for corrupted frames and drop them if necessary
         if frame == None:
             break
 
@@ -704,26 +749,20 @@ def videotest():
         if frame.shape[0]==0 or frame.shape[1]==0:
             break
 
+        # if no corrupted frame was detected the     
         testFrame.currentImg = frame
 
-
-
-
-        #cv2.imshow('video', testFrame.getOverlayImage())
-        count+=1
-        if count > 12000:
-            break
-
-
-        
+        # finally process the frame 
         testFrame.processCurrentFrame()
+        
+        # and store the resulting annotated overlay frame 
+        out.write(testFrame.getOverlayImage())
+
+
+        # save single frames on left button click for debugging purposes
         fig = plt.figure(1)
-        #To print out position of Mouse if left button clicked
         cid = fig.canvas.mpl_connect('button_press_event', onclick)
 
-        
-        out.write(testFrame.getOverlayImage())
-        
         if (toggle == True):
             #print("Toggle activated")
             i = i + 1
@@ -735,11 +774,6 @@ def videotest():
             print()
 
         cv2.setMouseCallback('video', onclick)        
-        #testFrame.receiveFrame(frame)
-        #print(np.amax(testFrame.currentImg))
-        #cv2.imwrite('test_fromvideo.png', frame)
-        #testFrame.loadImageFromFile('test_fromvideo.png')
-        #exit()
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
@@ -747,5 +781,5 @@ def videotest():
     cap.release()
     out.release()
 
-videotest()
-#testLine()
+#videotest()
+testLine()
