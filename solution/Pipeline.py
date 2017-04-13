@@ -325,7 +325,7 @@ def histoCurvatureFit(binary_warped):
     print("Coeff b" ,left_fit[1])
     print("Coeff c" ,left_fit[2])  
 
-        
+
     # Generate a polygon to illustrate the search window area
     # And recast the x and y points into usable format for cv2.fillPoly()
     left_line_window1 = np.array([np.transpose(np.vstack([left_fitx-margin, ploty]))])
@@ -365,16 +365,15 @@ def histoCurvatureFit(binary_warped):
         cv2.circle(window_img,(x2,y2),2,(255,255, 0),2)
     
     # Draw the lane onto the warped blank image in green color
-    #cv2.fillPoly(window_img, np.int_([left_line_pts]), (0,255, 0))
-    #cv2.fillPoly(window_img, np.int_([right_line_pts]), (0,255, 0))
+    cv2.fillPoly(window_img, np.int_([left_line_pts]), (0,255, 0))
+    cv2.fillPoly(window_img, np.int_([right_line_pts]), (0,255, 0))
 
-    #result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
-
-    # plt.imshow(result/255)
-    # plt.plot(left_fitx, ploty, color='yellow')
-    # plt.plot(right_fitx, ploty, color='yellow')
-    # plt.xlim(0, 1280)
-    # plt.ylim(720, 0)
+    result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
+    plt.imshow(result/255)
+    plt.plot(left_fitx, ploty, color='yellow')
+    plt.plot(right_fitx, ploty, color='yellow')
+    plt.xlim(0, 1280)
+    plt.ylim(720, 0)
     # result = (result/255)
     return window_img/255
 
@@ -443,10 +442,15 @@ leftLaneCenter = dist_pickle["leftLaneCenter"]
 
 
 
-img = cv2.imread('../test_images/test5.jpg')
+img = cv2.imread('../test_images/img_temp_5.png')
 img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
 
-
+# kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3))
+# fgbg = cv2.createBackgroundSubtractorMOG2()
+# fgmask = fgbg.apply(img)
+# fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_OPEN, kernel)
+# cv2.imshow('frame',fgmask)
+# cv2.waitKey(3000)
 
 img_pipelined = pipeline(img,M,Minv)
 

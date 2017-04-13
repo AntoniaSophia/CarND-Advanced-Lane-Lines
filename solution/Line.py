@@ -479,6 +479,9 @@ class EgoLane():
         leftx = nonzerox[left_lane_inds]
         lefty = nonzeroy[left_lane_inds] 
 
+        rightx = nonzerox[right_lane_inds]
+        righty = nonzeroy[right_lane_inds] 
+
         # now process the pixel for left line and for the right line separately
         self.leftline.processLanePts(leftx, lefty, binary_warped.shape)
         self.rightline.processLanePts(rightx, righty, binary_warped.shape)
@@ -486,8 +489,6 @@ class EgoLane():
         ###############################################
         # here only the plotting part starts 
         ###############################################
-        rightx = nonzerox[right_lane_inds]
-        righty = nonzeroy[right_lane_inds] 
 
 
         left_fit = self.leftline.current_fit
@@ -704,7 +705,7 @@ def videotest():
     #out = cv2.VideoWriter('c:/temp/challenge_video.avi', cv2.VideoWriter_fourcc(*'XVID'), 28.0, (1280,720))    
 
     cap = cv2.VideoCapture('../test_videos/project_video.mp4')
-    out = cv2.VideoWriter('c:/temp/project_video.mp4', cv2.VideoWriter_fourcc(*'XVID'), 28.0, (1280,720))    
+    out = cv2.VideoWriter('c:/temp/project_video.mp4', cv2.VideoWriter_fourcc(*'XVID'), 24.0, (1280,720))    
 
     i = 0
     while(cap.isOpened()):
