@@ -137,11 +137,12 @@ if calcWarp == True:
 # Visualize undistortion
 if  calcDistortion == True and calcWarp == True:
     img = cv2.imread('../test_images/straight_lines1.jpg')
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     dst = cv2.undistort(img, mtx, dist, None, mtx)
     unwarped_image, perspective_M, perspective_Minv = calculateWarp(img, mtx, dist)
 
     polygon = Polygon([[703 , 460], [1104 , 718], [203 , 718], [578 , 460]], closed=True, fill=True, linewidth=2,edgecolor='r',facecolor='none')
-    rectangle = patches.Rectangle((300,2),600,718,linewidth=2,edgecolor='r',facecolor='none')
+    rectangle = patches.Rectangle((leftLaneCenter,0),rightLaneCenter-leftLaneCenter,720,linewidth=2,edgecolor='r',facecolor='none')
 
 
     f, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20,10))
@@ -155,6 +156,7 @@ if  calcDistortion == True and calcWarp == True:
     ax3.set_title('Unwarped Image', fontsize=30)
     plt.show()
 
+    # now store all values in a pickle
     dist_pickle = {}
     dist_pickle["mtx"] = mtx
     dist_pickle["dist"] = dist
