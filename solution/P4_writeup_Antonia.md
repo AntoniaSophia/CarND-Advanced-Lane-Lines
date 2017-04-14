@@ -18,6 +18,9 @@ The goals / steps of this project are the following:
 [//]: # (Image References)
 
 [image1]: ./../output_images/undistorted_calibration13.png "Model"
+[image2]: ./../test_images/straight_lines1.jpg "Straight Line"
+[image3]: ./../test_images/straight_lines1_warp_points.jpg "Straight Line Warp Points"
+[image4]: ./../test_images/warp_example.png "Warp Example"
 [image10]: ./../docu/Class_Diagram.JPG "Class Diagram"
 [image11]: ./../docu/Smoothing.JPG "Smoothing concept"
 
@@ -32,7 +35,6 @@ The goals / steps of this project are the following:
 * link to Jupyter monitor which shows calibration and warp calculation [Notebook](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/solution/Advanced_Lane_Lines.ipynb)
 * link to HTML output of the Jupyter monitor which shows calibration and warp calculation [Notebook HTML](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/output_images/Advanced_Lane_Lines.html)
 
-You're reading it!
 ###Camera Calibration
 
 ####1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
@@ -45,6 +47,54 @@ I start by preparing "object points" (variable `objpoints` in cell 2), which wil
 I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result: 
 
 ![Undistorted chessboard][image1]
+
+In the file [Calibrate the Camera](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/solution/Calibrate_Camera.py) I continue to calculate the warp starting at cell 6: I added a click-event listener and used an image containing a straight line:
+![Straight Line Image][image2]
+
+Afterwards I've identified four points in that image by simply clicking on the pixels to identify the warp points
+![Straight Line Image][image3]
+
+
+
+The code for my perspective transform is contained in cell 8 of the Juypter notebook and containes a function called calculateWarp(). This function calculateWarp() takes as inputs an image (`img`), as well the distortion matrix of the camera.  I chose the hardcode the source and destination points in the following manner:
+
+```
+leftLaneCenter = 300
+rightLaneCenter = 900
+
+upper_right_click = (703 , 460)
+lower_right_click = (1104 , 718)
+lower_left_click = (207 , 718)
+upper_left_click = (578 , 460)
+
+src = np.float32(
+    [upper_right_click,
+     lower_right_click,
+     lower_left_click,
+     upper_left_click])
+
+dst = np.float32(
+    [[rightLaneCenter,0],
+     [rightLaneCenter,img_dist.shape[0]],
+     [leftLaneCenter,img_dist.shape[0]],
+     [leftLaneCenter,0]])
+
+```
+This resulted in the following source and destination points:
+
+
+| Source        | Destination   | 
+|:-------------:|:-------------:| 
+| 703 , 460      | 300, 0        | 
+| 1104 , 718     | 300, 720      |
+| 207 , 718      | 900, 720      |
+| 578 , 460      | 900, 0        |
+
+I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
+
+![Warp Example][image4]
+
+The resulting values I store in a pickle file, see cell 10 in the Jupyter notebook
 
 ###Pipeline (single images)
 
@@ -60,33 +110,8 @@ I used a combination of color and gradient thresholds to generate a binary image
 
 ####3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
-The code for my perspective transform includes a function called `warper()`, which appears in lines 1 through 8 in the file `example.py` (output_images/examples/example.py) (or, for example, in the 3rd code cell of the IPython notebook).  The `warper()` function takes as inputs an image (`img`), as well as source (`src`) and destination (`dst`) points.  I chose the hardcode the source and destination points in the following manner:
+see above 
 
-```
-src = np.float32(
-    [[(img_size[0] / 2) - 55, img_size[1] / 2 + 100],
-    [((img_size[0] / 6) - 10), img_size[1]],
-    [(img_size[0] * 5 / 6) + 60, img_size[1]],
-    [(img_size[0] / 2 + 55), img_size[1] / 2 + 100]])
-dst = np.float32(
-    [[(img_size[0] / 4), 0],
-    [(img_size[0] / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), img_size[1]],
-    [(img_size[0] * 3 / 4), 0]])
-
-```
-This resulted in the following source and destination points:
-
-| Source        | Destination   | 
-|:-------------:|:-------------:| 
-| 585, 460      | 320, 0        | 
-| 203, 720      | 320, 720      |
-| 1127, 720     | 960, 720      |
-| 695, 460      | 960, 0        |
-
-I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
-
-![alt text][image4]
 
 ####4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
