@@ -24,6 +24,8 @@ The goals / steps of this project are the following:
 [image4]: ./../output_images/warp_example.png "Warp Example"
 [image5]: ./../test_images/test4.jpg "test4.jpg"
 [image6]: ./../output_images/undistort_test4.jpg "Undistorted test4.jpg"
+[image7]: ./../docu/Curvature.jpg "Curvature.jpg"
+[image8]: ./../docu/Curvature1.jpg "Curvature1.jpg"
 [image10]: ./../docu/Class_Diagram.JPG "Class Diagram"
 [image11]: ./../docu/Smoothing.JPG "Smoothing concept"
 
@@ -236,7 +238,64 @@ Then I did some other stuff and fit my lane lines with a 2nd order polynomial ki
 
 ####5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
-I did this in lines # through # in my code in `my_other_file.py`
+The base class Line has a function called calculateCurvature(). You can find this function in the file Line.py at line 224
+In this function the following steps are carried out:
+- take the quadratic coefficient after the polynomial fit (the curvature only depends on the quadratic coefficient)
+- generate some fake data in order to execute a polynomial fit on that. Distinguish between left line and right line!
+- execute the polynomial fit
+- define maximum y-value, corresponding to the bottom of the image
+- define conversion ratios between pixel space and real world space (in meters)
+- execute the polynomial fit again, but this time in world space
+- calculate the radius according to the following formula
+![Radius Calculation][image7]
+![Radius Calculation_1][image8]
+
+```
+def calculateCurvature(self):
+    #1.Step: Generate some fake data to represent lane-line pixels
+    ploty = np.linspace(0, 719, num=720)# to cover same y-range as image
+    quadratic_coeff = self.current_fit[0] 
+
+    #2.Step: For each y position generate random x position within +/-50 pix
+    # of the line base position in each case (x=300 for left, and x=900 for right)
+    if self.orientation == 'left':
+        points_x = np.array([300 + (y**2)*quadratic_coeff + np.random.randint(-50, high=51) 
+                                  for y in ploty])
+    else:
+        points_x = np.array([900 + (y**2)*quadratic_coeff + np.random.randint(-50, high=51) 
+                                    for y in ploty])
+
+    points_x = points_x[::-1]  # Reverse to match top-to-bottom in y
+
+    #3.Step: Execute the polynomial fit: Fit a second order polynomial to pixel positions in each fake lane line
+    points_x_fit = np.polyfit(ploty, points_x, 2)
+    fitx = points_x_fit[0]*ploty**2 + points_x_fit[1]*ploty + points_x_fit[2]
+
+    #4. Step:  Define y-value where we want radius of curvature
+    # I'll choose the maximum y-value, corresponding to the bottom of the image
+    y_eval = np.max(ploty)
+
+    #5. Step: Define conversions in x and y from pixels space to meters
+    ym_per_pix = 30/720 # meters per pixel in y dimension
+    xm_per_pix = 3.7/700 # meters per pixel in x dimension
+
+    #6. Step Fit new polynomials to x,y in world space
+    fit_cr = np.polyfit(ploty*ym_per_pix, fitx*xm_per_pix, 2)
+
+    #7. Step: Calculate the new radii of curvature
+    curverad = ((1 + (2*fit_cr[0]*y_eval*ym_per_pix + fit_cr[1])**2)**1.5) / np.absolute(2*fit_cr[0])
+
+    #8. Step: return the result
+    return curverad.astype(int)
+```
+
+
+
+
+and the position of the vehicle with respect to center I did this in lines # through # in my code in `my_other_file.py`
+
+
+
 
 ####6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 

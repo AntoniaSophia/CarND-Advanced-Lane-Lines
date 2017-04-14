@@ -253,7 +253,19 @@ class Line():
         # Define y-value where we want radius of curvature
         # I'll choose the maximum y-value, corresponding to the bottom of the image
         y_eval = np.max(ploty)
-        curverad = ((1 + (2*points_x_fit[0]*y_eval + points_x_fit[1])**2)**1.5) / np.absolute(2*points_x_fit[0])
+        #curverad = ((1 + (2*points_x_fit[0]*y_eval + points_x_fit[1])**2)**1.5) / np.absolute(2*points_x_fit[0])
+
+        # Define conversions in x and y from pixels space to meters
+        ym_per_pix = 30/720 # meters per pixel in y dimension
+        xm_per_pix = 3.7/700 # meters per pixel in x dimension
+
+        # Fit new polynomials to x,y in world space
+        fit_cr = np.polyfit(ploty*ym_per_pix, fitx*xm_per_pix, 2)
+
+        # Calculate the new radii of curvature
+        curverad = ((1 + (2*fit_cr[0]*y_eval*ym_per_pix + fit_cr[1])**2)**1.5) / np.absolute(2*fit_cr[0])
+
+
         #print(left_curverad, right_curverad)        
         return curverad.astype(int)
 
@@ -857,8 +869,8 @@ def videotest():
     #cap = cv2.VideoCapture('../test_videos/harder_challenge_video.mp4')
     #out = cv2.VideoWriter('c:/temp/harder_challenge_video.avi', cv2.VideoWriter_fourcc(*'XVID'), 28.0, (1280,720))    
 
-    #cap = cv2.VideoCapture('../test_videos/project_video.mp4')
-    #out = cv2.VideoWriter('c:/temp/project_video.mp4', cv2.VideoWriter_fourcc(*'XVID'), 24.0, (1280,720))    
+    cap = cv2.VideoCapture('../test_videos/project_video.mp4')
+    out = cv2.VideoWriter('c:/temp/project_video.mp4', cv2.VideoWriter_fourcc(*'XVID'), 24.0, (1280,720))    
 
     i = 0
     counter = 0 
