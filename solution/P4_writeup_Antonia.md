@@ -17,8 +17,8 @@ The goals / steps of this project are the following:
 
 [//]: # (Image References)
 
-[image0]: ./../camera_cal/calibration1.png "calibration1.png"
-[image1]: ./../output_images/undistored_calibration1.png "Undistorted calibration1.png"
+[image0]: ./../camera_cal/calibration1.jpg "calibration1.jpg"
+[image1]: ./../output_images/undistored_calibration1.jpg "Undistorted calibration1.jpg"
 [image2]: ./../test_images/straight_lines1.jpg "Straight Line"
 [image3]: ./../output_images/straight_lines1_warp_points.jpg "Straight Line Warp Points"
 [image4]: ./../output_images/warp_example.png "Warp Example"
