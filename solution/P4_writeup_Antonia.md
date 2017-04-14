@@ -22,6 +22,8 @@ The goals / steps of this project are the following:
 [image2]: ./../test_images/straight_lines1.jpg "Straight Line"
 [image3]: ./../output_images/straight_lines1_warp_points.jpg "Straight Line Warp Points"
 [image4]: ./../output_images/warp_example.png "Warp Example"
+[image5]: ./../test_images/test4.jpg "test4.jpg"
+[image6]: ./../output_images/undistorted_test4.jpg "Undistorted test4.jpg"
 [image10]: ./../docu/Class_Diagram.JPG "Class Diagram"
 [image11]: ./../docu/Smoothing.JPG "Smoothing concept"
 
@@ -210,7 +212,8 @@ The pipeline is implemented in the class EgoLane starting from line 279 contains
 ####1. Provide an example of a distortion-corrected image.
 
 To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
-![alt text][image2]
+The original image ![Test image test4.jpg][image5]
+The corresponding undistorted image ![Undistorted test image test4.jpg][image6]
 
 
 ####2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
