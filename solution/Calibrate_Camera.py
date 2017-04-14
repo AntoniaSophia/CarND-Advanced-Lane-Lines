@@ -104,7 +104,7 @@ calcWarp = True
 # Test undistortion on an image
 if calcDistortion == True:
     #img = cv2.imread('calibration_wide/test_image.jpg')
-    img = cv2.imread('../camera_cal/calibration13.jpg')
+    img = cv2.imread('../camera_cal/calibration1.jpg')
 
     img_size = (img.shape[1], img.shape[0])
 
@@ -114,7 +114,7 @@ if calcDistortion == True:
 
     #dst = cv2.cvtColor(dst, cv2.COLOR_BGR2RGB)
     dst = cv2.undistort(img, mtx, dist, None, mtx)
-    #cv2.imwrite('../camera_cal/test_undistored_calibration13.jpg',dst)
+    cv2.imwrite('../output_images/undistored_calibration1.jpg',dst)
 
 
 

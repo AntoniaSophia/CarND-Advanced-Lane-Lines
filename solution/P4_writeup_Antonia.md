@@ -17,7 +17,8 @@ The goals / steps of this project are the following:
 
 [//]: # (Image References)
 
-[image1]: ./../output_images/undistorted_calibration13.png "Model"
+[image0]: ./../camera_cal/calibration1.png "calibration1.png"
+[image1]: ./../output_images/undistored_calibration1.png "Undistorted calibration1.png"
 [image2]: ./../test_images/straight_lines1.jpg "Straight Line"
 [image3]: ./../output_images/straight_lines1_warp_points.jpg "Straight Line Warp Points"
 [image4]: ./../output_images/warp_example.png "Warp Example"
@@ -48,7 +49,8 @@ I start by preparing "object points" (variable `objpoints` in cell 2), which wil
 
 I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result: 
 
-![Undistorted chessboard][image1]
+The original image looks like: ![Orginial chessboard][image0]
+The corresponding undistorted image looks like ![Undistorted chessboard][image1]
 
 In the file [Calibrate the Camera](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/solution/Calibrate_Camera.py) I continue to calculate the warp starting at cell 6: I added a click-event listener and used an image containing a straight line:
 ![Straight Line Image][image2]
@@ -206,6 +208,7 @@ The pipeline is implemented in the class EgoLane starting from line 279 contains
 
 
 ####1. Provide an example of a distortion-corrected image.
+
 To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
 ![alt text][image2]
 
@@ -242,7 +245,10 @@ I implemented this step in lines # through # in my code in `yet_another_file.py`
 
 ####1. Provide a link to your final video output.  Your pipeline should perform reasonably well on the entire project video (wobbly lines are ok but no catastrophic failures that would cause the car to drive off the road!).
 
-Here's a [link to my video result](./../results/project_video.mp4)
+Here's a [link to my project video result](./../output_videos/project_video.mp4)
+And finally here's a [link to my challenge video result](./../output_videos/challenge_video.mp4)
+
+The project video looks quite good, whereas the challenge video has some problems driving under the brigde in the shadow. I should have invested more time in finding out on how to solve the problems....See at least the next section for some discussion on ideas.
 
 ---
 
