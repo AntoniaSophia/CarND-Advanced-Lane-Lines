@@ -24,6 +24,7 @@ def onclick(event, x, y, flags, param):
         print(toggle)
     return
 
+adaptive = False
 
 # Define a class to receive the characteristics of each line detection
 class Line():
@@ -61,10 +62,36 @@ class Line():
         # define the depth until when old results are kept for average calculation    
         self.historyDepth = 5
 
+
+    def reset(self):
+       # reset!
+        self.number_of_subsequent_invalid = 0                
+        self.coeff_history = []
+        self.center_line_point = -1
+        self.allx = [] 
+        self.ally = [] 
+        self.diffs = np.array([0,0,0], dtype='float') 
+        self.radius_of_curvature = None 
+        self.current_fit = [np.array([False])]  
+        self.bestx = None     
+        self.best_fit = None  
+        self.radius_of_curvature = None
+        self.detected = True    #Required for a restart!!
+        # skip values!
+
     # process the pixels found 
     def processLanePts(self, x_pts, y_pts,img_shape):
+
+ 
         # initial assumption is that a line will be detected
         self.detected = True
+
+        if len(y_pts)<500 or len(x_pts)<500:
+            self.allx = []
+            self.ally = []
+            self.number_of_subsequent_valid = 0
+            self.number_of_subsequent_invalid += 1
+            return
 
 
         lane_fit = np.polyfit(y_pts, x_pts, 2)
@@ -115,20 +142,7 @@ class Line():
                 self.detected = False
   
         if self.number_of_subsequent_invalid > 5:
-                # reset!
-                self.number_of_subsequent_invalid = 0                
-                self.coeff_history = []
-                self.center_line_point = -1
-                self.allx = [] 
-                self.ally = [] 
-                self.diffs = np.array([0,0,0], dtype='float') 
-                self.radius_of_curvature = None 
-                self.current_fit = [np.array([False])]  
-                self.bestx = None     
-                self.best_fit = None  
-                self.radius_of_curvature = None
-                self.detected = True    #Required for a restart!!
-                # skip values!
+            self.reset()
                 #print('Frame seems to be invalid!!!')
         else:
             # do nothing
@@ -192,7 +206,7 @@ class Line():
 
 
         print('-----------------------------------------------------')
-        print('Process pts on Line ' , self.orientation)
+        print('Process ' , len(y_pts) ,  ' points on Line ' , self.orientation)
         print("Coeff a " ,lane_fit[0])
         print("Coeff b" ,lane_fit[1])
         print("Coeff c" ,lane_fit[2])       
@@ -262,72 +276,105 @@ class EgoLane():
         self.rightline = RightLine()
 
     # processing pipeline for a found frame    
-    def pipeline(self, frame):
-        #print("pipeline")
+    def pipeline(self, frame,displayText=True):
+        global adaptive
 
-        #img = frame.currentImg
+        #1.Step: take the modified image after contrastIncrease()
         img = frame.modifiedImg
 
-
+        #2. Step: undistort this image
         img_undistort = frame.camera.undistort(img)
 
+        #3. Step: apply the color gradient
         colorGrad = self.colorGradient(img_undistort,(170,220),(22,100))
+
+        #4. Step: Warp the image
         warped = frame.camera.warp(colorGrad)
+
+        #5.Step: mask the area of interest
         maskedImage = frame.camera.maskAreaOfInterest(warped)
+
+        #6.step: convert to black/white
         grayImage = frame.camera.rgbConvertToBlackWhite(maskedImage)
         
-        histoCurvatureFitImage = self.histoCurvatureFit(grayImage)
+        #7. in case we have nothing detected yet --> detect newly
+        #   in case we have already detected lines --> detect from this base
+        if self.leftline.detected == True and self.leftline.detected == True:
+            histoCurvatureFitImage = self.nextFramehistoCurvatureFit(grayImage)
+            #histoCurvatureFitImage = self.histoCurvatureFit(grayImage)
+        else:
+            histoCurvatureFitImage = self.histoCurvatureFit(grayImage)
+
+
+        # 9.Step Now display the found lines and plot them on top of the original image
         coloredLaneImage = self.displayLane(frame.currentImg)
        
-        #plt.imshow(coloredLaneImage)
-        #plt.show()
 
-        #plt.imshow(maskedImage)
-        #plt.show()
-
-
-        #print (np.amax(grayImage))
+        #10.Step Now add a small resized image of the curvature calculation in the upper middle of the original image
         grayImage = np.uint8(grayImage)
         gray2color = cv2.cvtColor(grayImage,cv2.COLOR_GRAY2RGB ,3)
         gray2color = cv2.addWeighted(coloredLaneImage.astype(np.float32)*255, 1, (gray2color.astype(np.float32))*255, 1, 0)
-
         resized_image = cv2.resize(gray2color,None,fx=0.3, fy=0.3, interpolation = cv2.INTER_AREA)
 
-        #cv2.rectangle(resized_image, (2,2), (resized_image.shape[1]-2,resized_image.shape[0]-2), (255,255,255), 4) 
-
+        #11.Step Unwarp the whole image
         unwarped = frame.camera.unwarp(coloredLaneImage)*255
-
         src_mask = mask = 255 * np.ones(resized_image.shape, resized_image.dtype)
         unwarped = cv2.seamlessClone(resized_image.astype(np.uint8), unwarped.astype(np.uint8), src_mask.astype(np.uint8), (640,200), cv2.NORMAL_CLONE)
 
-        #plt.imshow(unwarped)
-        #plt.show()
 
+        #12.Step: add additional text left/right which might be interesting
+        if displayText==True:
+            new_image = np.zeros_like(unwarped)
 
-        new_image = np.zeros_like(unwarped)
+            text1 = "Left Lane Dropout Counter: " + str(self.leftline.number_of_subsequent_invalid)
+            text1a = "Left Lane Points found: " + str(len(self.leftline.allx))
+            text2 = "Right Lane Dropout Counter: " + str(self.rightline.number_of_subsequent_invalid)
+            text2a = "Right Lane Points found: " + str(len(self.rightline.allx))
+            text3 = "Curvature radius left: " + str(self.leftline.radius_of_curvature) + " (m)"
+            text4 = "Curvature radius right: " + str(self.rightline.radius_of_curvature) + " (m)"
 
-        text1 = "Left Lane Dropout Counter: " + str(self.leftline.number_of_subsequent_invalid)
-        text2 = "Right Lane Dropout Counter: " + str(self.rightline.number_of_subsequent_invalid)
-        text3 = "Curvature radius left: " + str(self.leftline.radius_of_curvature) + " (m)"
-        text4 = "Curvature radius right: " + str(self.rightline.radius_of_curvature) + " (m)"
-        text5 = "Left Lane from center: " + str(round(self.leftline.line_base_pos*xm_per_pix,2)*100) + ' (cm)'
-        text6 = "Right Lane from center: " + str(round(self.rightline.line_base_pos*xm_per_pix,2)*100) + ' (cm)'
-        text7 = "RESTART! " 
-        cv2.putText(new_image,text1,(50,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
-        cv2.putText(new_image,text2,(900,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
-        cv2.putText(new_image,text3,(50,70), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
-        cv2.putText(new_image,text4,(900,70), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
-        cv2.putText(new_image,text5,(50,90), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
-        cv2.putText(new_image,text6,(900,90), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
-        
-        if (self.leftline.number_of_subsequent_invalid == 5 or self.rightline.number_of_subsequent_invalid == 5):
-            cv2.putText(new_image,text7,(540,60), cv2.FONT_HERSHEY_SIMPLEX, 1,(0,0,255),2,cv2.LINE_AA)
+            center_deviation = round((self.leftline.line_base_pos*xm_per_pix*100 + self.rightline.line_base_pos*xm_per_pix*(-100))/2,2)
 
-        #unwarped = np.uint8(unwarped)
-        #gray2color.copyTo( unwarped.submat( 500, gray2color.rows(), 500, gray2color.cols() ) );
-        #result = cv2.addWeighted(unwarped, 0, gray2color, 1, 0)
-        result = cv2.addWeighted(unwarped.astype(np.float32)*255, 1, (new_image.astype(np.float32))*255, 1, 0)
+            if center_deviation >=0:
+                text5 = "Vehicle is left of center " + str(center_deviation) + ' (cm)'
+            else:
+                text5 = "Vehicle is right of center " + str(center_deviation) + ' (cm)'
 
+            text6 = text5
+            text7 = "RESTART! " 
+            text8 = "ADAPTIVE!!"
+
+            cv2.putText(new_image,text1,(50,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            cv2.putText(new_image,text1a,(50,70), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            cv2.putText(new_image,text2,(900,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            cv2.putText(new_image,text2a,(900,70), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            cv2.putText(new_image,text3,(50,90), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            cv2.putText(new_image,text4,(900,90), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            cv2.putText(new_image,text5,(50,110), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            cv2.putText(new_image,text6,(900,110), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            
+            if (self.leftline.number_of_subsequent_invalid == 5 or self.rightline.number_of_subsequent_invalid == 5):
+                cv2.putText(new_image,text7,(540,60), cv2.FONT_HERSHEY_SIMPLEX, 1,(0,0,255),2,cv2.LINE_AA)
+
+            if adaptive == True:
+                cv2.putText(new_image,text8,(540,80), cv2.FONT_HERSHEY_SIMPLEX, 1,(0,0,255),2,cv2.LINE_AA)                
+
+            result = cv2.addWeighted(unwarped.astype(np.float32)*255, 1, (new_image.astype(np.float32))*255, 1, 0)
+        else:
+            result = unwarped/255
+
+        #8. Detect whether we should change preprocessing of that image in order to get more pixels
+        if len(self.leftline.allx) < 500:
+            adaptive = True
+            self.leftline.reset()
+        elif len(self.rightline.allx) < 500:
+            adaptive = True
+            self.rightline.reset()
+        else:
+            if self.leftline.number_of_subsequent_valid > 0:
+                adaptive = False            
+
+        #13.Step finally return the result
         return result
 
 
@@ -371,9 +418,9 @@ class EgoLane():
 
         return overlay_img/255
 
-    def processFrame(self, frame):
+    def processFrame(self, frame, displayText=True):
         #print("Processing egolane")
-        return self.pipeline(frame)
+        return self.pipeline(frame,displayText)
 
     def colorGradient(self, img, s_channel_thresh=(180, 255), sobel_x_thresh=(30, 120)):
         img = np.copy(img)
@@ -538,6 +585,87 @@ class EgoLane():
         # plt.ylim(720, 0)
         # result = (result/255)
 
+    def nextFramehistoCurvatureFit(self, binary_warped):
+        # Assume you now have a new warped binary image 
+        # from the next frame of video (also called "binary_warped")
+        # It's now much easier to find line pixels!
+
+        if self.leftline.current_fit != None and self.leftline.current_fit[0] != False and self.rightline.current_fit != None and self.rightline.current_fit[0] != False:
+            left_fit = self.leftline.current_fit
+            right_fit = self.rightline.current_fit
+        elif self.leftline.best_fit != None and self.leftline.best_fit[0] != False and self.rightline.best_fit != None and self.rightline.best_fit[0] != False:
+            left_fit = self.leftline.best_fit
+            right_fit = self.rightline.best_fit
+        else:
+            return self.histoCurvatureFit(binary_warped)
+
+        print('left_fit = ', left_fit) 
+        print('right_fit = ', right_fit) 
+
+        nonzero = binary_warped.nonzero()
+        nonzeroy = np.array(nonzero[0])
+        nonzerox = np.array(nonzero[1])
+        margin = 50
+        left_lane_inds = ((nonzerox > (left_fit[0]*(nonzeroy**2) + left_fit[1]*nonzeroy + left_fit[2] - margin)) & (nonzerox < (left_fit[0]*(nonzeroy**2) + left_fit[1]*nonzeroy + left_fit[2] + margin))) 
+        right_lane_inds = ((nonzerox > (right_fit[0]*(nonzeroy**2) + right_fit[1]*nonzeroy + right_fit[2] - margin)) & (nonzerox < (right_fit[0]*(nonzeroy**2) + right_fit[1]*nonzeroy + right_fit[2] + margin)))  
+
+        # Again, extract left and right line pixel positions
+        leftx = nonzerox[left_lane_inds]
+        lefty = nonzeroy[left_lane_inds] 
+        rightx = nonzerox[right_lane_inds]
+        righty = nonzeroy[right_lane_inds]
+
+       # now process the pixel for left line and for the right line separately
+        self.leftline.processLanePts(leftx, lefty, binary_warped.shape)
+        self.rightline.processLanePts(rightx, righty, binary_warped.shape)
+
+        ###############################################
+        # here only the plotting part starts 
+        ###############################################
+
+
+        left_fit = self.leftline.current_fit
+        right_fit = self.rightline.current_fit
+
+        # Generate x and y values for plotting
+        ploty = np.linspace(0, binary_warped.shape[0]-1, binary_warped.shape[0] )
+        left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
+        right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+        
+        # Create an image to draw on and an image to show the selection window
+        out_img = np.dstack((binary_warped, binary_warped, binary_warped))*255
+        window_img = np.zeros_like(out_img)
+        # Color in left and right line pixels
+        out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
+        out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
+
+        # Generate a polygon to illustrate the search window area
+        # And recast the x and y points into usable format for cv2.fillPoly()
+        left_line_window1 = np.array([np.transpose(np.vstack([left_fitx-margin, ploty]))])
+        left_line_window2 = np.array([np.flipud(np.transpose(np.vstack([left_fitx+margin, ploty])))])
+        left_line_pts = np.hstack((left_line_window1, left_line_window2))
+        right_line_window1 = np.array([np.transpose(np.vstack([right_fitx-margin, ploty]))])
+        right_line_window2 = np.array([np.flipud(np.transpose(np.vstack([right_fitx+margin, ploty])))])
+        right_line_pts = np.hstack((right_line_window1, right_line_window2))
+
+        # fill the lane with red
+        for x1,y1,x2,y2 in zip(left_fitx.astype(int),ploty.astype(int),right_fitx.astype(int),ploty.astype(int)):
+            cv2.line(window_img,(x1,y1),(x2,y2),(255,0, 0),2)
+            cv2.circle(window_img,(x1,y1),2,(255,255, 0),2)
+            cv2.circle(window_img,(x2,y2),2,(255,255, 0),2)
+        
+        # Draw the lane onto the warped blank image in green color
+        cv2.fillPoly(window_img, np.int_([left_line_pts]), (0,255, 0))
+        cv2.fillPoly(window_img, np.int_([right_line_pts]), (0,255, 0))
+
+        result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
+        #plt.plot(left_fitx, ploty, color='yellow')
+        #plt.plot(right_fitx, ploty, color='yellow')
+
+        #print(window_img)
+        #plt.imshow(result/255)
+        #plt.show()
+        return result/255
 
 # Define a class to receive the characteristics of each line detection
 class Frame():
@@ -556,7 +684,7 @@ class Frame():
     # process the current frame    
     def processCurrentFrame(self):
         self.currentEgoLaneOverlay = None
-        self.currentEgoLaneOverlay = self.egoLane.processFrame(self)
+        self.currentEgoLaneOverlay = self.egoLane.processFrame(self,True)
 
     # helper method which just displays the current image
     def displayCurrentImage(self, overlay=True):
@@ -670,46 +798,76 @@ class Camera():
         return (np.logical_or(r,b)*255)
 
 
+    def contrastIncrease(self,img, factor=1.0,adaptive=False):
+
+        #return img
+
+        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+        hsv[:,:,0] = 0
+        hsv[:,:,1] = 0
+
+        img_v = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
+
+        img_g = cv2.cvtColor(img_v, cv2.COLOR_RGB2GRAY)
+
+        if adaptive == False:
+            ret,mask = cv2.threshold(img_g, 170, 255, cv2.THRESH_BINARY)
+        else:
+            mask = cv2.adaptiveThreshold(img_g,255,cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
+
+        output = cv2.bitwise_and(hsv, hsv, mask = mask)
+
+        img_output = cv2.cvtColor(output, cv2.COLOR_HSV2BGR)
+
+
+        img_yuv = cv2.cvtColor(img_output, cv2.COLOR_BGR2YUV)
+        # equalize the histogram of the Y channel
+        img_yuv[:,:,2] = img_yuv[:,:,2]*factor
+        img_output = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
+
+        return img_output
+
+
 # just a function for debug purposes
 def testLine():
+    global adaptive
     testFrame = Frame()
     testFrame.initializeCamera()
 
-
-    testFrame.loadImageFromFile('../test_images/img_temp_1.png')
-
-    img = testFrame.currentImg
- 
-    img_yuv = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
-    # equalize the histogram of the Y channel
-    img_yuv[:,:,0] = cv2.equalizeHist(img_yuv[:,:,0])
-    # convert the YUV image back to RGB format
-    img_output = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
-    testFrame.modifiedImg = img_output
-    # uncomment this line in case you really want to used the modified image for processing
-    # for me it didn't bring any benefit - some real shadow removal should be considered...    
-    testFrame.modifiedImg = img
-
+    #testFrame.loadImageFromFile('../docu/img_overlay_586.png')
+    testFrame.loadImageFromFile('../temp_images/img_temp_1.png')
+    testFrame.modifiedImg = testFrame.camera.contrastIncrease(testFrame.currentImg,1.4,False)
     testFrame.processCurrentFrame()
     testFrame.displayCurrentImage()
 
 
+
 toggle = True
+adaptive = False
 
 def videotest():
     from moviepy.editor import VideoFileClip
+
+    global adaptive
+
     testFrame = Frame()
     testFrame.initializeCamera()
 
-    #cap = cv2.VideoCapture('../test_videos/challenge_video.mp4')
-    #out = cv2.VideoWriter('c:/temp/challenge_video.avi', cv2.VideoWriter_fourcc(*'XVID'), 28.0, (1280,720))    
 
-    cap = cv2.VideoCapture('../test_videos/project_video.mp4')
-    out = cv2.VideoWriter('c:/temp/project_video.mp4', cv2.VideoWriter_fourcc(*'XVID'), 24.0, (1280,720))    
+    #cap = cv2.VideoCapture('../test_videos/harder_challenge_video.mp4')
+    #out = cv2.VideoWriter('c:/temp/harder_challenge_video.avi', cv2.VideoWriter_fourcc(*'XVID'), 28.0, (1280,720))    
+
+    #cap = cv2.VideoCapture('../test_videos/project_video.mp4')
+    #out = cv2.VideoWriter('c:/temp/project_video.mp4', cv2.VideoWriter_fourcc(*'XVID'), 24.0, (1280,720))    
 
     i = 0
+    counter = 0 
     while(cap.isOpened()):
         ret, frame = cap.read()
+        counter += 1
+
+        #if counter < 110:
+        #    continue
 
 
         # check for corrupted frames and drop them if necessary
@@ -725,16 +883,10 @@ def videotest():
         # if no corrupted frame was detected the     
         testFrame.currentImg = frame
 
-        img_yuv = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV)
-        # equalize the histogram of the Y channel
-        img_yuv[:,:,0] = cv2.equalizeHist(img_yuv[:,:,0])
-        # convert the YUV image back to RGB format
-        img_output = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
-        testFrame.modifiedImg = img_output
-
-        # uncomment this line in case you really want to used the modified image for processing
-        # for me it didn't bring any benefit - some real shadow removal should be considered...
-        testFrame.modifiedImg = frame
+        if adaptive==False:
+            testFrame.modifiedImg = testFrame.camera.contrastIncrease(testFrame.currentImg,1.4,False)
+        else:
+            testFrame.modifiedImg = testFrame.camera.contrastIncrease(testFrame.currentImg,1.4,True)
 
         # finally process the frame 
         testFrame.processCurrentFrame()

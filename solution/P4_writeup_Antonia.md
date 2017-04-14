@@ -17,10 +17,9 @@ The goals / steps of this project are the following:
 
 [//]: # (Image References)
 
-[image4]: ./docu/model.png "Model"
-[image5]: ./docu/model_summary.png "Model summary"
-[image6]: ./docu/data_distribution.png "Data distribution"
-
+[image1]: ./output_images/undistorted_calibration13.png "Model"
+[image10]: ./docu/Class_Diagram.JPG "Class Diagram"
+[image11]: ./docu/Smoothing.JPG "Smoothing concept"
 
 ## Rubric Points
 ###Here I will consider the [rubric points](https://review.udacity.com/#!/rubrics/571/view) individually and describe how I addressed each point in my implementation.  
@@ -38,13 +37,14 @@ You're reading it!
 
 ####1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
 
-The code for this step is contained in the first code cell of the IPython notebook located in "./examples/example.ipynb" (or in lines # through # of the file called `some_file.py`).  
+The code for this step is contained in the file [Calibrate the Camera](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/solution/Calibrate_Camera.py) or in the Jupyter notebook [Notebook](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/solution/Advanced_Lane_Lines.ipynb) in the cells 2,3,4 and escpecially 5. 
+What I've done is basically to load all chessboard images and let 9x6 corners inside the board been identfied. 
 
-I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  `imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
+I start by preparing "object points" (variable `objpoints` in cell 2), which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objpoints` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  The variable `imgpoints` (see also cell 2) will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
 
 I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result: 
 
-![alt text][image1]
+![Undistorted chessboard][image1]
 
 ###Pipeline (single images)
 
@@ -118,5 +118,25 @@ Here's a [link to my video result](./../results/project_video.mp4)
 
 ####1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
+
+coefficient smoothing
+class structure which is easily extensible
+histogram adaptation after YUV transformation on the Y-channel did not work so far
+contrastIncrease (thresholding in order to filter white and yellow color)
+next curvature fit
+double the line finding process ("overlay of the overlay") lines 646,647 - consumes nearly twice processing time, but gives very good results
+
+
+Further work:
+- implement a real shadow removal, I got the following hints for techniques to achieve it 
+- problems after the first shadow area when no line points have been detected   docu/img_overlay_586.png
+- improve contrastIncrease
 Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+
+
+
+Hints I got from my mentor:
+-- https://infoscience.epfl.ch/record/111781/files/piecewise_shadows.pdf
+-- more complex - http://aqua.cs.uiuc.edu/site/files/cvpr11_shadow.pdf
+- ML on the bird's eye view https://carnd-forums.udacity.com/questions/33788268/an-experiment-using-deeplearning-for-advanced-lane-finding
 
