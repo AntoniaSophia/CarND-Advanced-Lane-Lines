@@ -17,9 +17,9 @@ The goals / steps of this project are the following:
 
 [//]: # (Image References)
 
-[image1]: ./output_images/undistorted_calibration13.png "Model"
-[image10]: ./docu/Class_Diagram.JPG "Class Diagram"
-[image11]: ./docu/Smoothing.JPG "Smoothing concept"
+[image1]: ./../output_images/undistorted_calibration13.png "Model"
+[image10]: ./../docu/Class_Diagram.JPG "Class Diagram"
+[image11]: ./../docu/Smoothing.JPG "Smoothing concept"
 
 ## Rubric Points
 ###Here I will consider the [rubric points](https://review.udacity.com/#!/rubrics/571/view) individually and describe how I addressed each point in my implementation.  
