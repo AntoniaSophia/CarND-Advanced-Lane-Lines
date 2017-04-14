@@ -25,7 +25,7 @@ The goals / steps of this project are the following:
 [image5]: ./../test_images/test4.jpg "test4.jpg"
 [image6]: ./../output_images/undistort_test4.jpg "Undistorted test4.jpg"
 [image7]: ./../docu/Curvature.jpg "Curvature.jpg"
-[image8]: ./../docu/Curvature1.jpg "Curvature1.jpg"
+[image8]: ./../docu/Curvature1.jpg "Curvature_jpg"
 [image10]: ./../docu/Class_Diagram.JPG "Class Diagram"
 [image11]: ./../docu/Smoothing.JPG "Smoothing concept"
 
@@ -109,7 +109,7 @@ The resulting values I store in a pickle file, see cell 10 in the Jupyter notebo
 The file Line.py [Pipeline and video processing](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/solution/Line.py) contains a class structure which I used for processing images and the pipeline.
 ![ClassDiagram][image10]
 A class Frame contains a class Camera which keeps all relevant Camera functions like loadCalibration(), undistort(), warp(), unwarp(),... Additionally the Frame contains a class EgoLane which itself contains each an object LeftLine and RightLine. Both objects LeftLine and RightLine inherit from a common base class called Line.
-The pipeline is implemented in the class EgoLane starting from line 279 contains all in all 13 steps
+The pipeline is implemented in the class EgoLane starting from line 291 contains all in all 13 steps
 
 ```
         #1.Step: take the modified image after contrastIncrease()
@@ -221,9 +221,12 @@ The corresponding undistorted image ![Undistorted test image test4.jpg][image6]
 
 
 ####2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
+
+########################################
 I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
 
 ![alt text][image3]
+########################################
 
 ####3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
@@ -232,9 +235,11 @@ see above in the pipeline Step 4. An example you see in the Juyper notebook ![Wa
 
 ####4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
+########################################
 Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
 
 ![alt text][image5]
+########################################
 
 ####5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
@@ -290,18 +295,36 @@ def calculateCurvature(self):
 ```
 
 
+The position of the vehicle with respect to center is calculated with the following steps:
+- after polyfit calculate the x-values at the bottom on the image
+- depending on the line (LeftLine or RightLine) calculate the deviation from the lane center in pixels
+- transform the pixel deviation into real world space, convert to centimeters and take the mean between the LeftLine deviation and the RightLine deviation
 
+```
+#1.Step: calculate the bottom x-values after polyfir
+center_line_point = lane_fit[0]*720**2 + lane_fit[1]*720 + lane_fit[2]
 
-and the position of the vehicle with respect to center I did this in lines # through # in my code in `my_other_file.py`
+#2. Step: distance in meters of vehicle center from the line
+if self.orientation is 'left':
+    self.line_base_pos = self.center_line_point - 300
+else:
+    self.line_base_pos = 900 - self.center_line_point                 
 
+#3. Step Transform into the real-world space and take the mean between the leftline deviation and the rightline deviation
+center_deviation = round((self.leftline.line_base_pos*xm_per_pix*100 + self.rightline.line_base_pos*xm_per_pix*(-100))/2,2)
+```
 
+The code is split across the file Line.py, e.g line 118, 200-205, 348
 
 
 ####6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
+########################################
 I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
 
 ![alt text][image6]
+########################################
+
 
 ---
 
@@ -320,7 +343,7 @@ The project video looks quite good, whereas the challenge video has some problem
 
 ####1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-
+########################################
 coefficient smoothing
 class structure which is easily extensible
 histogram adaptation after YUV transformation on the Y-channel did not work so far
@@ -334,6 +357,7 @@ Further work:
 - problems after the first shadow area when no line points have been detected   docu/img_overlay_586.png
 - improve contrastIncrease
 Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+########################################
 
 
 
