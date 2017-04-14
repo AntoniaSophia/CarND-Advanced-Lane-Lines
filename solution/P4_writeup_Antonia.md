@@ -25,7 +25,7 @@ The goals / steps of this project are the following:
 [image5]: ./../test_images/test4.jpg "test4.jpg"
 [image6]: ./../output_images/undistort_test4.jpg "Undistorted test4.jpg"
 [image7]: ./../docu/Curvature.jpg "Curvature.jpg"
-[image8]: ./../docu/Curvature1.jpg "Curvature_jpg"
+[image8]: ./../docu/Curvature1.jpg "Curvature_1.jpg"
 [image10]: ./../docu/Class_Diagram.JPG "Class Diagram"
 [image11]: ./../docu/Smoothing.JPG "Smoothing concept"
 
