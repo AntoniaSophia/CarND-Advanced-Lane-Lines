@@ -19,8 +19,8 @@ The goals / steps of this project are the following:
 
 [image1]: ./../output_images/undistorted_calibration13.png "Model"
 [image2]: ./../test_images/straight_lines1.jpg "Straight Line"
-[image3]: ./../test_images/straight_lines1_warp_points.jpg "Straight Line Warp Points"
-[image4]: ./../test_images/warp_example.png "Warp Example"
+[image3]: ./../output_images/straight_lines1_warp_points.jpg "Straight Line Warp Points"
+[image4]: ./../output_images/warp_example.png "Warp Example"
 [image10]: ./../docu/Class_Diagram.JPG "Class Diagram"
 [image11]: ./../docu/Smoothing.JPG "Smoothing concept"
 
