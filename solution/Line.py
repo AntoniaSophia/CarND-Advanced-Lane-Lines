@@ -294,10 +294,10 @@ class EgoLane():
         #5.Step: mask the area of interest
         maskedImage = frame.camera.maskAreaOfInterest(warped)
 
-        #6.step: convert to black/white
+        #6.Step: convert to black/white
         grayImage = frame.camera.rgbConvertToBlackWhite(maskedImage)
         
-        #7. in case we have nothing detected yet --> detect newly
+        #7.Step in case we have nothing detected yet --> detect newly
         #   in case we have already detected lines --> detect from this base
         if self.leftline.detected == True and self.leftline.detected == True:
             histoCurvatureFitImage = self.nextFramehistoCurvatureFit(grayImage)
@@ -306,23 +306,23 @@ class EgoLane():
             histoCurvatureFitImage = self.histoCurvatureFit(grayImage)
 
 
-        # 9.Step Now display the found lines and plot them on top of the original image
+        # 8.Step Now display the found lines and plot them on top of the original image
         coloredLaneImage = self.displayLane(frame.currentImg)
        
 
-        #10.Step Now add a small resized image of the curvature calculation in the upper middle of the original image
+        #9.Step Now add a small resized image of the curvature calculation in the upper middle of the original image
         grayImage = np.uint8(grayImage)
         gray2color = cv2.cvtColor(grayImage,cv2.COLOR_GRAY2RGB ,3)
         gray2color = cv2.addWeighted(coloredLaneImage.astype(np.float32)*255, 1, (gray2color.astype(np.float32))*255, 1, 0)
         resized_image = cv2.resize(gray2color,None,fx=0.3, fy=0.3, interpolation = cv2.INTER_AREA)
 
-        #11.Step Unwarp the whole image
+        #10.Step Unwarp the whole image
         unwarped = frame.camera.unwarp(coloredLaneImage)*255
         src_mask = mask = 255 * np.ones(resized_image.shape, resized_image.dtype)
         unwarped = cv2.seamlessClone(resized_image.astype(np.uint8), unwarped.astype(np.uint8), src_mask.astype(np.uint8), (640,200), cv2.NORMAL_CLONE)
 
 
-        #12.Step: add additional text left/right which might be interesting
+        #11.Step: add additional text left/right which might be interesting
         if displayText==True:
             new_image = np.zeros_like(unwarped)
 
@@ -363,7 +363,7 @@ class EgoLane():
         else:
             result = unwarped/255
 
-        #8. Detect whether we should change preprocessing of that image in order to get more pixels
+        #12. Detect whether we should change preprocessing of that image in order to get more pixels
         if len(self.leftline.allx) < 500:
             adaptive = True
             self.leftline.reset()

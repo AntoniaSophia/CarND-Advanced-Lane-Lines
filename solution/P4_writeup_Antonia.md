@@ -34,6 +34,8 @@ The goals / steps of this project are the following:
 * link to Calibrate_Camera.py [Calibrate the Camera](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/solution/Calibrate_Camera.py)  
 * link to Jupyter monitor which shows calibration and warp calculation [Notebook](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/solution/Advanced_Lane_Lines.ipynb)
 * link to HTML output of the Jupyter monitor which shows calibration and warp calculation [Notebook HTML](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/output_images/Advanced_Lane_Lines.html)
+* link to the annotated output video of the project_video.mp4 at [Project video](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/output_videos/project_video.mp4)
+* link to the annotated output video of the challenge_video.mp4 at [Challenge video](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/output_videos/challenge_video.avi)
 
 ###Camera Calibration
 
@@ -94,9 +96,114 @@ I verified that my perspective transform was working as expected by drawing the 
 
 ![Warp Example][image4]
 
-The resulting values I store in a pickle file, see cell 10 in the Jupyter notebook
+The resulting values I store in a pickle file, see cell 10 in the Jupyter notebook [Notebook](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/solution/Advanced_Lane_Lines.ipynb)
 
 ###Pipeline (single images)
+
+The file Line.py [Pipeline and video processing](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/solution/Line.py) contains a class structure which I used for processing images and the pipeline.
+![ClassDiagram][image10]
+A class Frame contains a class Camera which keeps all relevant Camera functions like loadCalibration(), undistort(), warp(), unwarp(),... Additionally the Frame contains a class EgoLane which itself contains each an object LeftLine and RightLine. Both objects LeftLine and RightLine inherit from a common base class called Line.
+The pipeline is implemented in the class EgoLane starting from line 279 contains all in all 13 steps
+
+```
+        #1.Step: take the modified image after contrastIncrease()
+        img = frame.modifiedImg
+
+        #2. Step: undistort this image
+        img_undistort = frame.camera.undistort(img)
+
+        #3. Step: apply the color gradient
+        colorGrad = self.colorGradient(img_undistort,(170,220),(22,100))
+
+        #4. Step: Warp the image
+        warped = frame.camera.warp(colorGrad)
+
+        #5.Step: mask the area of interest
+        maskedImage = frame.camera.maskAreaOfInterest(warped)
+
+        #6.Step: convert to black/white
+        grayImage = frame.camera.rgbConvertToBlackWhite(maskedImage)
+        
+        #7.Step: in case we have nothing detected yet --> detect newly
+        #   in case we have already detected lines --> detect from this base
+        if self.leftline.detected == True and self.leftline.detected == True:
+            histoCurvatureFitImage = self.nextFramehistoCurvatureFit(grayImage)
+            #histoCurvatureFitImage = self.histoCurvatureFit(grayImage)
+        else:
+            histoCurvatureFitImage = self.histoCurvatureFit(grayImage)
+
+
+        # 8.Step Now display the found lines and plot them on top of the original image
+        coloredLaneImage = self.displayLane(frame.currentImg)
+       
+
+        #9.Step Now add a small resized image of the curvature calculation in the upper middle of the original image
+        grayImage = np.uint8(grayImage)
+        gray2color = cv2.cvtColor(grayImage,cv2.COLOR_GRAY2RGB ,3)
+        gray2color = cv2.addWeighted(coloredLaneImage.astype(np.float32)*255, 1, (gray2color.astype(np.float32))*255, 1, 0)
+        resized_image = cv2.resize(gray2color,None,fx=0.3, fy=0.3, interpolation = cv2.INTER_AREA)
+
+        #10.Step Unwarp the whole image
+        unwarped = frame.camera.unwarp(coloredLaneImage)*255
+        src_mask = mask = 255 * np.ones(resized_image.shape, resized_image.dtype)
+        unwarped = cv2.seamlessClone(resized_image.astype(np.uint8), unwarped.astype(np.uint8), src_mask.astype(np.uint8), (640,200), cv2.NORMAL_CLONE)
+
+
+        #11.Step: add additional text left/right which might be interesting
+        if displayText==True:
+            new_image = np.zeros_like(unwarped)
+
+            text1 = "Left Lane Dropout Counter: " + str(self.leftline.number_of_subsequent_invalid)
+            text1a = "Left Lane Points found: " + str(len(self.leftline.allx))
+            text2 = "Right Lane Dropout Counter: " + str(self.rightline.number_of_subsequent_invalid)
+            text2a = "Right Lane Points found: " + str(len(self.rightline.allx))
+            text3 = "Curvature radius left: " + str(self.leftline.radius_of_curvature) + " (m)"
+            text4 = "Curvature radius right: " + str(self.rightline.radius_of_curvature) + " (m)"
+
+            center_deviation = round((self.leftline.line_base_pos*xm_per_pix*100 + self.rightline.line_base_pos*xm_per_pix*(-100))/2,2)
+
+            if center_deviation >=0:
+                text5 = "Vehicle is left of center " + str(center_deviation) + ' (cm)'
+            else:
+                text5 = "Vehicle is right of center " + str(center_deviation) + ' (cm)'
+
+            text6 = text5
+            text7 = "RESTART! " 
+            text8 = "ADAPTIVE!!"
+
+            cv2.putText(new_image,text1,(50,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            cv2.putText(new_image,text1a,(50,70), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            cv2.putText(new_image,text2,(900,50), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            cv2.putText(new_image,text2a,(900,70), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            cv2.putText(new_image,text3,(50,90), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            cv2.putText(new_image,text4,(900,90), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            cv2.putText(new_image,text5,(50,110), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            cv2.putText(new_image,text6,(900,110), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,255,255),1,cv2.LINE_AA)
+            
+            if (self.leftline.number_of_subsequent_invalid == 5 or self.rightline.number_of_subsequent_invalid == 5):
+                cv2.putText(new_image,text7,(540,60), cv2.FONT_HERSHEY_SIMPLEX, 1,(0,0,255),2,cv2.LINE_AA)
+
+            if adaptive == True:
+                cv2.putText(new_image,text8,(540,80), cv2.FONT_HERSHEY_SIMPLEX, 1,(0,0,255),2,cv2.LINE_AA)                
+
+            result = cv2.addWeighted(unwarped.astype(np.float32)*255, 1, (new_image.astype(np.float32))*255, 1, 0)
+        else:
+            result = unwarped/255
+
+        #12. Detect whether we should change preprocessing of that image in order to get more pixels
+        if len(self.leftline.allx) < 500:
+            adaptive = True
+            self.leftline.reset()
+        elif len(self.rightline.allx) < 500:
+            adaptive = True
+            self.rightline.reset()
+        else:
+            if self.leftline.number_of_subsequent_valid > 0:
+                adaptive = False            
+
+        #13.Step finally return the result
+```
+
 
 ####1. Provide an example of a distortion-corrected image.
 To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
@@ -110,7 +217,7 @@ I used a combination of color and gradient thresholds to generate a binary image
 
 ####3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
-see above 
+see above in the pipeline Step 4. An example you see in the Juyper notebook ![Warp Example][image4]
 
 
 ####4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
@@ -161,7 +268,7 @@ Here I'll talk about the approach I took, what techniques I used, what worked an
 
 
 Hints I got from my mentor:
--- https://infoscience.epfl.ch/record/111781/files/piecewise_shadows.pdf
--- more complex - http://aqua.cs.uiuc.edu/site/files/cvpr11_shadow.pdf
+- https://infoscience.epfl.ch/record/111781/files/piecewise_shadows.pdf
+- more complex - http://aqua.cs.uiuc.edu/site/files/cvpr11_shadow.pdf
 - ML on the bird's eye view https://carnd-forums.udacity.com/questions/33788268/an-experiment-using-deeplearning-for-advanced-lane-finding
 
