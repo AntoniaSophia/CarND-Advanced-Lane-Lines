@@ -27,7 +27,7 @@ The goals / steps of this project are the following:
 [image7]: ./../docu/Curvature.jpg "Curvature.jpg"
 [image8]: ./../docu/Curvature_1.jpg "Curvature_1.jpg"
 [image10]: ./../docu/Class_Diagram.JPG "Class Diagram"
-[image11]: ./../docu/Smoothing.JPG "Smoothing concept"
+[image11]: ./../docu/Smooting.JPG "Smoothing concept"
 
 [image20]: ./../test_images/img_temp_1.png
 [image21]: ./../output_images/challenge_contrastIncrease.jpg
