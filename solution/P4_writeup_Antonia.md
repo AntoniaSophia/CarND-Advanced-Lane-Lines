@@ -381,7 +381,10 @@ I was playing around with Sobel, Thresholds, Magnitudes, HistogramEqualization, 
 What I've done so far:
 - creating an extensible class structure in Line.py
 - coefficient smoothing (take the average in the polynomial coefficients of the last n occurences of lines), see picture
+
 ![coefficientSmooting][image11]
+
+
 - implementing a method contrastIncrease() for thresholding in order to filter preferably white and yellow color 
 - implemented contractIncrease() function which is able to adapt to different conditions when e.g. the numbers of pixels for polynomial fit is too less 
 - next curvature fit (line 600: nextFramehistoCurvatureFit()) in order to start with the already found polynomial fit and increase search speed as well as having a better starting point for the sliding window search
