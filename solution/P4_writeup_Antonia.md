@@ -261,12 +261,6 @@ And this produced the final output image of the function contractIncrease()
 ![contractIncreaseBridge][image27]: 
 
 
-########################################
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
-
-![alt text][image3]
-########################################
-
 ####3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
 see above in the pipeline Step 4. An example you see in the Juyper notebook ![Warp Example][image4]
@@ -274,18 +268,13 @@ see above in the pipeline Step 4. An example you see in the Juyper notebook ![Wa
 
 ####4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
-########################################
-Then I did some other stuff and fit my lane lines with a 2nd order polynomial kinda like this:
+There are three methods which identify the lane-line pixels and try to calculate the polynomial fit:
+- line 471: histoCurvatureFit() : This calculates the most probable lane-line pixels with the technique of sliding window search in case there was no previous lane found
+- line 600: nextFramehistoCurvatureFit() : This calculates the most probable lane-line pixels with the technique of sliding window search in case there was already a previous lane found
+- line 83: processLanePts() : takes the output of the above two functions and performs a polynomial fit with 2nd order polynomial
 
-![alt text][image5]
-########################################
-
-[image24]: ./../output_images/challenge_searchingWindow.jpg
-[image25]: ./../output_images/challenge_finalResult.jpg
-
-
-
-
+Here is an example of the sliding window search (orange = left line pixels, blue = right line pixels, green = sliding window search , yellow = polynomial fit curve)
+![slidingWindowSearch][image24]:
 
 ####5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
@@ -366,9 +355,8 @@ The code is split across the file Line.py, e.g line 118, 200-205, 348
 ####6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
 ########################################
-I implemented this step in lines # through # in my code in `yet_another_file.py` in the function `map_lane()`.  Here is an example of my result on a test image:
-
-![alt text][image6]
+I implemented this step in lines 393-431 code in function displayLane().  Here is an example of my result on a test image:
+![challengeFinalResult][image25]
 ########################################
 
 
