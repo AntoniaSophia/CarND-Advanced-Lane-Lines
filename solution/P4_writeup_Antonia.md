@@ -354,10 +354,8 @@ The code is split across the file Line.py, e.g line 118, 200-205, 348
 
 ####6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-########################################
 I implemented this step in lines 393-431 code in function displayLane().  Here is an example of my result on a test image:
 ![challengeFinalResult][image25]
-########################################
 
 
 ---
@@ -377,25 +375,30 @@ The project video looks quite good, whereas the challenge video has some problem
 
 ####1. Briefly discuss any problems / issues you faced in your implementation of this project.  Where will your pipeline likely fail?  What could you do to make it more robust?
 
-########################################
-coefficient smoothing
-class structure which is easily extensible
-histogram adaptation after YUV transformation on the Y-channel did not work so far
-contrastIncrease (thresholding in order to filter white and yellow color)
-next curvature fit
-double the line finding process ("overlay of the overlay") lines 646,647 - consumes nearly twice processing time, but gives very good results
+Writing the overall class structure, the pipeline and a "first shot" was pretty easy. However the problems started when I tried to get my solution running for different conditions.
+I was playing around with Sobel, Thresholds, Magnitudes, HistogramEqualization, Color Spaces,.... - but at the end I feel there is still a lot of work to do in order to make this pipeline work for most common conditions.
 
+What I've done so far:
+- creating an extensible class structure in Line.py
+- coefficient smoothing (take the average in the polynomial coefficients of the last n occurences of lines), see picture
+![coefficientSmooting][image11]
+- implementing a method contrastIncrease() for thresholding in order to filter preferably white and yellow color 
+- implemented contractIncrease() function which is able to adapt to different conditions when e.g. the numbers of pixels for polynomial fit is too less 
+- next curvature fit (line 600: nextFramehistoCurvatureFit()) in order to start with the already found polynomial fit and increase search speed as well as having a better starting point for the sliding window search
+- implemented a restart() mechanism in order to initiate a kind of "healing" process when lines are not found anymore (e.g. the polynomial fit history was bad)
 
 Further work:
-- implement a real shadow removal, I got the following hints for techniques to achieve it 
+- my pipeline is not good when conditions are dark (lots of shadows!) or very bright (contractIncrease() doesn't deal with this yet)
+- implement a real shadow removal, I got the following hints for techniques to achieve it (see below)
 - problems after the first shadow area when no line points have been detected   docu/img_overlay_586.png
-- improve contrastIncrease
-Here I'll talk about the approach I took, what techniques I used, what worked and why, where the pipeline might fail and how I might improve it if I were going to pursue this project further.  
+- improve contrastIncrease() to be much more adaptive - not only for the situation which I covered (when no pixels are found at all)
+
+
 ########################################
 
 
 
-Hints I got from my mentor:
+Further hints I got from my mentor:
 - https://infoscience.epfl.ch/record/111781/files/piecewise_shadows.pdf
 - more complex - http://aqua.cs.uiuc.edu/site/files/cvpr11_shadow.pdf
 - ML on the bird's eye view https://carnd-forums.udacity.com/questions/33788268/an-experiment-using-deeplearning-for-advanced-lane-finding
