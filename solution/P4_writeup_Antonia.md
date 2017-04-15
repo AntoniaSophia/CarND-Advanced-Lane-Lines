@@ -29,6 +29,16 @@ The goals / steps of this project are the following:
 [image10]: ./../docu/Class_Diagram.JPG "Class Diagram"
 [image11]: ./../docu/Smoothing.JPG "Smoothing concept"
 
+[image20]: ./../test_images/img_temp_1.png
+[image21]: ./../output_images/challenge_contrastIncrease.jpg
+[image22]: ./../output_images/challenge_colorGradient.jpg
+[image23]: ./../output_images/challenge_maskAreaOfInterest.jpg
+[image24]: ./../output_images/challenge_searchingWindow.jpg
+[image25]: ./../output_images/challenge_finalResult.jpg
+
+[image26]: ./../test_images/img_temp_134.png
+[image27]: ./../output_images/bridge_contrastIncrease.jpg
+
 ## Rubric Points
 ###Here I will consider the [rubric points](https://review.udacity.com/#!/rubrics/571/view) individually and describe how I addressed each point in my implementation.  
 
@@ -222,6 +232,35 @@ The corresponding undistorted image ![Undistorted test image test4.jpg][image6]
 
 ####2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 
+There are basically three methods which I use sequentially:
+- line 813: contrastIncrease(): This methods also contains a conversion into HSV color space and masks areas which are too dark for lines (threshold is 170)
+- line 437: colorGradient(): The color gradient contains a conversion into HSV color space followed by a Sobel-Operator in x-direction and an appropriate scaling+thresholding
+- line 783: maskAreaOfInterest(): Masks the area of interest where I'm searching for the line to appear (cutting left side, right side and middle of the image) 
+
+Here are examples applied to the following original image:
+![original image][image20]
+
+The method contractIncrease() creates the following result:
+![contractIncrease][image21]
+
+The method colorGradient() creates the following result:
+![colorGradient][image22]
+
+The method maskAreaOfInterest() creates the following result:
+![maskAreaOfInterest][image23]
+
+In cases where it is too dark and the method contractIncrease() would otherwise produce too less points for polynomial calculation I used an "adaptive mode" which only gets active in cases of dark color conditions
+```
+mask = cv2.adaptiveThreshold(img_g,170,cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
+```
+
+Example on the challenge video directly under the bridge:
+![contractIncreaseBridge][image26]: 
+
+And this produced the final output image of the function contractIncrease()
+![contractIncreaseBridge][image27]: 
+
+
 ########################################
 I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines # through # in `another_file.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
 
@@ -240,6 +279,13 @@ Then I did some other stuff and fit my lane lines with a 2nd order polynomial ki
 
 ![alt text][image5]
 ########################################
+
+[image24]: ./../output_images/challenge_searchingWindow.jpg
+[image25]: ./../output_images/challenge_finalResult.jpg
+
+
+
+
 
 ####5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
@@ -301,7 +347,7 @@ The position of the vehicle with respect to center is calculated with the follow
 - transform the pixel deviation into real world space, convert to centimeters and take the mean between the LeftLine deviation and the RightLine deviation
 
 ```
-#1.Step: calculate the bottom x-values after polyfir
+#1.Step: calculate the bottom x-values after polyfit
 center_line_point = lane_fit[0]*720**2 + lane_fit[1]*720 + lane_fit[2]
 
 #2. Step: distance in meters of vehicle center from the line

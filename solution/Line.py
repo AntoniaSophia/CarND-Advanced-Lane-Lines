@@ -446,11 +446,11 @@ class EgoLane():
         #scaled_sobel = np.uint8(255*abs_sobelx/np.max(abs_sobelx))
         
         # Sobel y
-        sobel_y = cv2.Sobel(l_channel, cv2.CV_64F, 0, 1) # Take the derivative in y
+        #sobel_y = cv2.Sobel(l_channel, cv2.CV_64F, 0, 1) # Take the derivative in y
         #abs_sobely = np.absolute(sobely) # Absolute y derivative to accentuate lines away from vertical
         #scaled_sobel = np.uint8(255*abs_sobely/np.max(abs_sobely))
 
-        mag_sobel = np.sqrt(sobel_x*sobel_x + sobel_y*sobel_y)
+        #mag_sobel = np.sqrt(sobel_x*sobel_x + sobel_y*sobel_y)
         #abs_sobel = np.absolute(mag_sobel)
         abs_sobel = np.absolute(sobel_x)
         scaled_sobel = np.uint8(255*abs_sobel/np.max(abs_sobel))
@@ -825,7 +825,7 @@ class Camera():
         if adaptive == False:
             ret,mask = cv2.threshold(img_g, 170, 255, cv2.THRESH_BINARY)
         else:
-            mask = cv2.adaptiveThreshold(img_g,255,cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
+            mask = cv2.adaptiveThreshold(img_g,170,cv2.ADAPTIVE_THRESH_MEAN_C,cv2.THRESH_BINARY,11,2)
 
         output = cv2.bitwise_and(hsv, hsv, mask = mask)
 
@@ -834,7 +834,8 @@ class Camera():
 
         img_yuv = cv2.cvtColor(img_output, cv2.COLOR_BGR2YUV)
         # equalize the histogram of the Y channel
-        img_yuv[:,:,2] = img_yuv[:,:,2]*factor
+        #img_yuv[:,:,2] = img_yuv[:,:,2]*factor
+        img_yuv[:,:,0] = cv2.equalizeHist(img_yuv[:,:,0])
         img_output = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
 
         return img_output
@@ -847,7 +848,7 @@ def testLine():
     testFrame.initializeCamera()
 
     #testFrame.loadImageFromFile('../docu/img_overlay_586.png')
-    testFrame.loadImageFromFile('../temp_images/img_temp_1.png')
+    testFrame.loadImageFromFile('../test_images/img_temp_1.png')
     testFrame.modifiedImg = testFrame.camera.contrastIncrease(testFrame.currentImg,1.4,False)
     testFrame.processCurrentFrame()
     testFrame.displayCurrentImage()
@@ -929,5 +930,5 @@ def videotest():
     cap.release()
     out.release()
 
-videotest()
-#testLine()
+#videotest()
+testLine()
