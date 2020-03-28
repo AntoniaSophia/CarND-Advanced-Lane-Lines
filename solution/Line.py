@@ -424,7 +424,7 @@ class EgoLane():
         if self.rightline.detected == True and self.leftline.detected == True:
             for x1,y1,x2,y2 in zip(left_fitx.astype(int),ploty.astype(int),right_fitx.astype(int),ploty.astype(int)):
                 cv2.line(overlay_img,(x1,y1),(x2,y2),(0, 255, 0),2)
-        elif self.leftline.best_fit != None and self.rightline.best_fit != None:
+        elif self.leftline.best_fit.any() != None and self.rightline.best_fit.any != None:
             for x1,y1,x2,y2 in zip(left_fitx.astype(int),ploty.astype(int),right_fitx.astype(int),ploty.astype(int)):
                 cv2.line(overlay_img,(x1,y1),(x2,y2),(0, 255, 0),2)
 
@@ -516,6 +516,7 @@ class EgoLane():
             win_xright_low = rightx_current - margin
             win_xright_high = rightx_current + margin
             # Draw the windows on the visualization image
+            out_img = np.ascontiguousarray(out_img, dtype=np.uint8)
             cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2) 
             cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2) 
             # Identify the nonzero pixels in x and y within the window
@@ -575,6 +576,7 @@ class EgoLane():
         right_line_pts = np.hstack((right_line_window1, right_line_window2))
 
         # fill the lane with red
+        window_img = np.ascontiguousarray(window_img, dtype=np.uint8)
         for x1,y1,x2,y2 in zip(left_fitx.astype(int),ploty.astype(int),right_fitx.astype(int),ploty.astype(int)):
             cv2.line(window_img,(x1,y1),(x2,y2),(255,0, 0),2)
             cv2.circle(window_img,(x1,y1),2,(255,255, 0),2)
@@ -584,7 +586,10 @@ class EgoLane():
         cv2.fillPoly(window_img, np.int_([left_line_pts]), (0,255, 0))
         cv2.fillPoly(window_img, np.int_([right_line_pts]), (0,255, 0))
 
-        result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
+        # print(type(out_img))
+        # print(type(window_img))
+
+        result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0,dtype = cv2.CV_8U)
         #plt.plot(left_fitx, ploty, color='yellow')
         #plt.plot(right_fitx, ploty, color='yellow')
 
@@ -602,10 +607,10 @@ class EgoLane():
         # from the next frame of video (also called "binary_warped")
         # It's now much easier to find line pixels!
 
-        if self.leftline.current_fit != None and self.leftline.current_fit[0] != False and self.rightline.current_fit != None and self.rightline.current_fit[0] != False:
+        if self.leftline.current_fit.any() != None and self.leftline.current_fit[0] != False and self.rightline.current_fit.any() != None and self.rightline.current_fit[0] != False:
             left_fit = self.leftline.current_fit
             right_fit = self.rightline.current_fit
-        elif self.leftline.best_fit != None and self.leftline.best_fit[0] != False and self.rightline.best_fit != None and self.rightline.best_fit[0] != False:
+        elif self.leftline.best_fit.any() != None and self.leftline.best_fit[0] != False and self.rightline.best_fit.any() != None and self.rightline.best_fit[0] != False:
             left_fit = self.leftline.best_fit
             right_fit = self.rightline.best_fit
         else:
@@ -661,6 +666,7 @@ class EgoLane():
         right_line_pts = np.hstack((right_line_window1, right_line_window2))
 
         # fill the lane with red
+        window_img = np.ascontiguousarray(window_img, dtype=np.uint8)
         for x1,y1,x2,y2 in zip(left_fitx.astype(int),ploty.astype(int),right_fitx.astype(int),ploty.astype(int)):
             cv2.line(window_img,(x1,y1),(x2,y2),(255,0, 0),2)
             cv2.circle(window_img,(x1,y1),2,(255,255, 0),2)
@@ -670,7 +676,7 @@ class EgoLane():
         cv2.fillPoly(window_img, np.int_([left_line_pts]), (0,255, 0))
         cv2.fillPoly(window_img, np.int_([right_line_pts]), (0,255, 0))
 
-        result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
+        result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0,dtype = cv2.CV_8U)
         #plt.plot(left_fitx, ploty, color='yellow')
         #plt.plot(right_fitx, ploty, color='yellow')
 
@@ -701,7 +707,7 @@ class Frame():
     # helper method which just displays the current image
     def displayCurrentImage(self, overlay=True):
 
-        if overlay == True and self.currentEgoLaneOverlay != None:
+        if overlay == True and self.currentEgoLaneOverlay.any() != None:
             print("Show Overlay")
             
             img_pipelined = np.uint8(255*self.currentEgoLaneOverlay/np.max(self.currentEgoLaneOverlay))
@@ -717,7 +723,7 @@ class Frame():
 
     # return the overlay image if available
     def getOverlayImage(self):
-        if self.currentEgoLaneOverlay != None:
+        if self.currentEgoLaneOverlay.any() != None:
             
             img_pipelined = np.uint8(255*self.currentEgoLaneOverlay/np.max(self.currentEgoLaneOverlay))
             result = cv2.addWeighted(self.currentImg.astype(int), 1, img_pipelined.astype(int), 0.5, 0,dtype=cv2.CV_8U)
@@ -871,10 +877,13 @@ def videotest():
     #out = cv2.VideoWriter('c:/temp/harder_challenge_video.avi', cv2.VideoWriter_fourcc(*'XVID'), 28.0, (1280,720))    
 
     cap = cv2.VideoCapture('../test_videos/project_video.mp4')
-    out = cv2.VideoWriter('c:/temp/project_video.mp4', cv2.VideoWriter_fourcc(*'XVID'), 24.0, (1280,720))    
+    out = cv2.VideoWriter('project_video.mp4', cv2.VideoWriter_fourcc(*'XVID'), 24.0, (1280,720))    
 
     i = 0
     counter = 0 
+    cv2.namedWindow('video')
+    cv2.setMouseCallback('video', onclick)    
+
     while(cap.isOpened()):
         ret, frame = cap.read()
         counter += 1
@@ -884,7 +893,7 @@ def videotest():
 
 
         # check for corrupted frames and drop them if necessary
-        if frame == None:
+        if frame.any() == None:
             break
 
         if frame.shape == None:
@@ -905,8 +914,9 @@ def videotest():
         testFrame.processCurrentFrame()
         
         # and store the resulting annotated overlay frame 
-        out.write(testFrame.getOverlayImage())
-
+        #out.write(testFrame.getOverlayImage())
+        
+        cv2.imshow('frame',testFrame.getOverlayImage())
 
         # save single frames on left button click for debugging purposes
         fig = plt.figure(1)
@@ -922,7 +932,7 @@ def videotest():
             #print("Toggle deactivated")
             print()
 
-        cv2.setMouseCallback('video', onclick)        
+            
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
@@ -930,5 +940,5 @@ def videotest():
     cap.release()
     out.release()
 
-#videotest()
-testLine()
+videotest()
+#testLine()
