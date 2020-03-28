@@ -285,6 +285,7 @@ def histoCurvatureFit(binary_warped):
         win_xleft_high = leftx_current + margin
         win_xright_low = rightx_current - margin
         win_xright_high = rightx_current + margin
+        out_img = np.ascontiguousarray(out_img, dtype=np.uint8)
         # Draw the windows on the visualization image
         cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2) 
         cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2) 
@@ -359,6 +360,7 @@ def histoCurvatureFit(binary_warped):
     right_line_pts = np.hstack((right_line_window1, right_line_window2))
 
     # fill the lane with red
+    window_img = np.ascontiguousarray(window_img, dtype=np.uint8)
     for x1,y1,x2,y2 in zip(left_fitx.astype(int),ploty.astype(int),right_fitx.astype(int),ploty.astype(int)):
         cv2.line(window_img,(x1,y1),(x2,y2),(255,0, 0),2)
         cv2.circle(window_img,(x1,y1),2,(255,255, 0),2)
@@ -368,7 +370,7 @@ def histoCurvatureFit(binary_warped):
     cv2.fillPoly(window_img, np.int_([left_line_pts]), (0,255, 0))
     cv2.fillPoly(window_img, np.int_([right_line_pts]), (0,255, 0))
 
-    result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
+    result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0,dtype = cv2.CV_8U)
     plt.imshow(result/255)
     plt.plot(left_fitx, ploty, color='yellow')
     plt.plot(right_fitx, ploty, color='yellow')
